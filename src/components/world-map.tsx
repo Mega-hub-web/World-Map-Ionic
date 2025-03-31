@@ -79,7 +79,7 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
   ]
 
   // Time zones data - simplified for demonstration
-  const timeZones = [
+  // const timeZones = [
     // { name: "UTC-12", offset: -12, color: "rgba(20, 20, 80, 0.2)" },
     // { name: "UTC-11", offset: -11, color: "rgba(30, 30, 90, 0.2)" },
     // { name: "UTC-10", offset: -10, color: "rgba(40, 40, 100, 0.2)" },
@@ -105,7 +105,7 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
     // { name: "UTC+10", offset: 10, color: "rgba(40, 40, 100, 0.2)" },
     // { name: "UTC+11", offset: 11, color: "rgba(30, 30, 90, 0.2)" },
     // { name: "UTC+12", offset: 12, color: "rgba(20, 20, 80, 0.2)" },
-  ]
+  // ]
 
   // Update current time
   useEffect(() => {
@@ -591,7 +591,7 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
 
             {/* Time zone overlays */}
             <div className="absolute inset-0 pointer-events-none">
-              {timeZones.map((zone, index) => {
+             {/* {timeZones.map((zone, index) => {
                 const zoneWidth = mapDimensions.width / timeZones.length
                 const left = index * zoneWidth + position.x
 
@@ -610,7 +610,7 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
                     </div>
                   </div>
                 )
-              })}
+              })}*/}
             </div>
 
             {/* Day/Night shading canvas */}

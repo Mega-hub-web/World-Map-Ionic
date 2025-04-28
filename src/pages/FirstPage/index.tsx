@@ -2,17 +2,17 @@
 
 import { useState, useEffect } from "react"
 import { UserPlus, MapPin, Clock, LogIn } from "lucide-react"
-import WorldMap from "@/components/world-map"
-import TimeDisplay from "@/components/time-display"
-import CityTimeDisplay from "@/components/city-time-display"
-import LoginModal from "@/components/login-modal"
-import MapControls from "@/components/map-controls"
-import { Button } from "@/components/ui/button"
-import { fetchData } from "@/servics/apiService"
+// import WorldMap from "@/components/world-map"
+import TimeDisplay from "../../components/time-display"
+import CityTimeDisplay from "../../components/city-time-display"
+import LoginModal from "../../components/login-modal"
+import MapControls from "../../components/map-controls"
+import { Button } from "../../components/ui/button"
+import { fetchData } from "../../servics/apiService"
 import { motion } from "framer-motion"
 
 
-export default function HomePage() {
+export default function FirstPage() {
   const [currentTime, setCurrentTime] = useState(new Date())
   const [showLogin, setShowLogin] = useState(false)
   const [modalView, setModalView] = useState<"login" | "signup">("login")

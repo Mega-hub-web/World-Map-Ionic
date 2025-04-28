@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react"
 import { ImageIcon, Upload, UserCircle } from "lucide-react"
 import { motion } from "framer-motion"
 import { toast } from "react-hot-toast"
-import { postData } from "@/servics/apiService"
+import { postData } from "../servics/apiService"
 
 interface AvatarProps {
     path?: string

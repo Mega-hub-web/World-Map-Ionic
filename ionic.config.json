@@ -1,5 +1,5 @@
 {
-  "name": "my-ionic-world-app",
+  "name": "world-map-app",
   "integrations": {
     "capacitor": {}
   },

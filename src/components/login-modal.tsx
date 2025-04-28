@@ -1,18 +1,16 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { X, Mail, Lock, UserIcon, AlertCircle } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Button } from "../components/ui/button"
+import { Input } from "../components/ui/input"
+import { Label } from "../components/ui/label"
 import { motion, AnimatePresence } from "framer-motion"
 import { Avatar } from "./avatar"
-import { postData } from "@/servics/apiService"
+import { postData } from "../servics/apiService"
 import { toast } from "sonner"
-import { useHistory } from "react-router"
-// import { useNavigate } from "react-router-dom"
+import { useIonRouter } from '@ionic/react'
 
 interface LoginModalProps {
   initialView?: "login" | "signup"
@@ -25,6 +23,7 @@ const EXISTING_EMAILS = ["test@example.com", "user@example.com", "admin@example.
 type ModalView = "login" | "signup"
 
 export default function LoginModal({ initialView = "login", onClose }: LoginModalProps) {
+  const ionRouter = useIonRouter();
   const [currentView, setCurrentView] = useState<ModalView>(initialView)
   const [avatarPath, setAvatarPath] = useState<string | undefined>()
   const [signupEmail, setSignupEmail] = useState("")
@@ -38,7 +37,6 @@ export default function LoginModal({ initialView = "login", onClose }: LoginModa
   const [signupConfirmPassword, setSignupConfirmPassword] = useState("");
   const [signupLocation, setSignupLocation] = useState("");
   const [signupPhone, setSignupPhone] = useState("");
-  const history = useHistory();
 
 
   // Update view if initialView prop changes
@@ -60,16 +58,16 @@ export default function LoginModal({ initialView = "login", onClose }: LoginModa
       console.log("Login successful:", response);
       localStorage.setItem("authToken", response.token);
       toast.success("Login successful!");
-      // 
-      // navigate("/map-view"); // Redirect to the map view or any other page after login
-      window.history.pushState({}, "", "/map-view");
+      
+      // Use Ionic router to navigate
+      ionRouter.push('/map-view');
+      onClose(); // Close the modal after successful navigation
+      
     } catch (error: any) {
       console.error("Error during login:", error);
-      alert(error.response?.data?.message || "Failed to log in. Please try again.");
       toast.error("Login failed. Please try again.");
     } finally {
       setIsSubmitting(false);
-      onClose();
     }
   };
 

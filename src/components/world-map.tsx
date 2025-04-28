@@ -3,11 +3,13 @@
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
-import { MapPin, Plus, Minus, Sun, Moon } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { calculateSunPosition, calculateMoonPosition, calculateSunriseSunset } from "@/lib/celestial-calculations"
+import { MapPin, Plus, Minus, Sun, Moon, Clock } from "lucide-react"
+import { Button } from "../components/ui/button"
+import { calculateSunPosition, calculateMoonPosition, calculateSunriseSunset } from "../lib/celestial-calculations"
 import { motion, AnimatePresence } from "framer-motion"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip"
+import CityTimeDisplay from "../components/city-time-display"
+import MapControls from "../components/map-controls"
 
 interface Location {
   name: string
@@ -16,10 +18,7 @@ interface Location {
   lng: number
 }
 
-interface WorldMapProps {
-  selectedLocation: Location
-  onLocationSelect: (location: Location) => void
-}
+
 
 interface PopupPosition {
   x: number
@@ -27,7 +26,7 @@ interface PopupPosition {
   placement: "top" | "bottom" | "left" | "right"
 }
 
-export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMapProps) {
+export default function WorldMap() {
   const mapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
@@ -48,6 +47,7 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
   const [currentTime, setCurrentTime] = useState(new Date())
   const [isMobile, setIsMobile] = useState(false)
 
+
   // Sample locations
   const locations: Location[] = [
     { name: "New York", timezone: "America/New_York", lat: 40.71, lng: -74.01 },
@@ -59,7 +59,20 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
     { name: "Cairo", timezone: "Africa/Cairo", lat: 30.05, lng: 31.23 },
     { name: "Dubai", timezone: "Asia/Dubai", lat: 25.2, lng: 55.27 },
   ]
-
+  const [selectedLocation, setSelectedLocation] = useState({
+    name: "London",
+    timezone: "Europe/London",
+    lat: 51.51,
+    lng: -0.13,
+  })
+  const headerCities = [
+    { name: "UTC", timezone: "UTC" },
+    { name: "London", timezone: "Europe/London" },
+    { name: "Hong Kong", timezone: "Asia/Hong_Kong" },
+    { name: "Delhi", timezone: "Asia/Kolkata" },
+    { name: "New York", timezone: "America/New_York" },
+    { name: "Rio", timezone: "America/Sao_Paulo" },
+  ]
   // Update current time
   useEffect(() => {
     const timer = setInterval(() => {
@@ -137,7 +150,7 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
 
     const ctx = canvas.getContext("2d")
     if (!ctx) return
-    
+
     // Set canvas dimensions to match map
     canvas.width = mapDimensions.width
     canvas.height = mapDimensions.height
@@ -322,7 +335,7 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
 
   // Handle location selection (click)
   const handleLocationSelect = (location: Location) => {
-    onLocationSelect(location)
+    setSelectedLocation(location)
   }
 
   const getPopoverTransform = (placement: "top" | "bottom" | "left" | "right"): string => {
@@ -372,228 +385,266 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
   }
 
   return (
-    <TooltipProvider>
-      <div className="relative w-full h-full overflow-hidden bg-gray-900">
-        {/* Map controls */}
-        <div className="absolute top-4 left-4 z-20 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg shadow-lg overflow-hidden">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleZoom("in")}
-                className="text-white hover:bg-gray-700 border-b border-gray-700/50"
-              >
-                <Plus className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Zoom In</p>
-            </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleZoom("out")}
-                className="text-white hover:bg-gray-700"
-              >
-                <Minus className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Zoom Out</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-
-        {/* Time indicator */}
-        <div className="absolute bottom-8 right-8 z-20 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg shadow-lg p-3">
-          <div className="text-center">
-            <div className="text-xs text-gray-400">Your Current Time</div>
-            <div className="text-2xl font-bold text-white">
-              {currentTime.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: false,
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Map container */}
-        <div
-          ref={mapRef}
-          className="relative w-full h-full cursor-grab active:cursor-grabbing"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-        >
-          {/* Map image with filter based on style */}
-          <div
-            className={`absolute w-full h-full bg-cover bg-center transition-filter duration-500 ${mapStyle === "dark"
-                ? "map-dark"
-                : mapStyle === "satellite"
-                  ? "map-satellite"
-                  : mapStyle === "political"
-                    ? "map-political"
-                    : mapStyle === "topographic"
-                      ? "map-topographic"
-                      : ""
-              }`}
-            style={{
-              transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
-              transformOrigin: "center",
-              transition: isDragging ? "none" : "transform 0.3s ease",
-            }}
-          >
-            {/* Grid overlay */}
-            <div className="absolute inset-0 grid grid-cols-24 grid-rows-12 pointer-events-none opacity-20">
-              {Array.from({ length: 24 * 12 }).map((_, index) => (
-                <div key={index} className="border border-blue-500/10"></div>
-              ))}
-            </div>
-
-            {/* Day/Night shading canvas */}
-            <canvas
-              ref={canvasRef}
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
-                transformOrigin: "center",
-                transition: isDragging ? "none" : "transform 0.3s ease",
-              }}
-            />
-
-            {/* Sun position */}
-            <div
-              className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2"
-              style={{
-                left: sunPosition.x,
-                top: sunPosition.y,
-                transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) translate(-50%, -50%)`,
-              }}
-            >
-              <div className="relative">
-                <Sun className="h-8 w-8 text-yellow-500 fill-yellow-500" />
-                <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-yellow-500/30 animate-pulse" />
-                <div className="absolute -top-2 -right-2 -left-2 -bottom-2 rounded-full bg-yellow-500/20" />
-                <div className="absolute -top-4 -right-4 -left-4 -bottom-4 rounded-full bg-yellow-500/10" />
-                <div className="absolute -top-8 -right-8 -left-8 -bottom-8 rounded-full bg-yellow-500/5 animate-pulse-glow" />
-              </div>
-            </div>
-
-            {/* Moon position */}
-            <div
-              className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2"
-              style={{
-                left: moonPosition.x,
-                top: moonPosition.y,
-                transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) translate(-50%, -50%)`,
-              }}
-            >
-              <div className="relative">
-                <Moon className="h-7 w-7 text-gray-200 fill-gray-200" />
-                <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-blue-100/20 animate-pulse" />
-                <div className="absolute -top-2 -right-2 -left-2 -bottom-2 rounded-full bg-blue-100/10" />
-                <div className="absolute -top-4 -right-4 -left-4 -bottom-4 rounded-full bg-blue-100/5 animate-pulse-glow" />
-              </div>
-            </div>
-
-            {/* Location markers */}
-            {locations.map((location) => {
-              const coords = getCoordinates(location.lat, location.lng)
-              return (
-                <button
-                  key={location.name}
-                  className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10 group"
-                  style={{
-                    left: coords.x,
-                    top: coords.y,
-                  }}
-                  onClick={() => handleLocationSelect(location)}
-                  onMouseEnter={() => handleLocationHover(location, coords.x, coords.y)}
-                  onMouseLeave={() => setHoveredLocation(null)}
-                >
-                  <div className="relative">
-                    <MapPin
-                      className={`h-8 w-8 ${selectedLocation.name === location.name
-                          ? "text-pink-500 fill-pink-500"
-                          : "text-pink-500 group-hover:text-pink-400"
-                        }`}
-                    />
-                    <div
-                      className={`absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full ${selectedLocation.name === location.name
-                          ? "bg-pink-500/30 animate-pulse"
-                          : "bg-transparent group-hover:bg-pink-500/20"
-                        }`}
-                    />
-                    {selectedLocation.name === location.name && (
-                      <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-pink-500/20 animate-ping" />
-                    )}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Location info popover - Hover-based */}
-        <AnimatePresence>
-          {hoveredLocation && (
-            <motion.div
-              ref={popoverRef}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.15 }}
-              className="absolute z-30 pointer-events-none"
-              style={{
-                left: popoverPosition.x + 20,
-                top: popoverPosition.y + 30,
-                transform: getPopoverTransform(popoverPosition.placement),
-                width: "115px",
-              }}
-            >
-              {/* Popover arrow */}
-              {getPopoverArrow(popoverPosition.placement)}
-
-              <div className="bg-gradient-to-br from-indigo-950/95 to-purple-900/95 backdrop-blur-md text-white rounded-lg border border-indigo-500/30 shadow-xl overflow-hidden">
-                {/* Header */}
-                <div className="px-3 py-2 border-b border-indigo-500/20 bg-indigo-900/30">
-                  <h3 className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-indigo-400">
-                    {hoveredLocation.name}
-                  </h3>
+    <div>
+      <div className="flex flex-col h-screen">
+        {/* Header with clocks */}
+        <header className="bg-gradient-to-r from-indigo-900 to-purple-900 text-white p-2 flex items-center overflow-x-auto shadow-lg z-10">
+          <div className="ml-auto flex space-x-1 overflow-x-auto">
+            {headerCities.map((city) => (
+              <div key={city.name} className="flex-shrink-0 border-r border-indigo-700/30 last:border-r-0 px-4 py-1">
+                <div className="flex items-center mb-1 justify-center">
+                  {city.name === "UTC" ? (
+                    <Clock className="h-4 w-4 mr-2 text-indigo-300" />
+                  ) : (
+                    <MapPin className="h-4 w-4 mr-2 text-pink-300" />
+                  )}
+                  <span className="text-gray-300 text-sm">{city.name}</span>
                 </div>
+                <CityTimeDisplay timezone={city.timezone} className="text-2xl font-bold" showSeconds={true} />
+                {city.name !== "UTC" && (
+                  <div className="text-xs mt-1 text-gray-300">
+                    {new Intl.DateTimeFormat("en-US", {
+                      weekday: "short",
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      timeZone: city.timezone, // Use the city's timezone
+                    }).format(new Date())}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
 
-                {/* Content */}
-                <div className="p-3 bg-indigo-950/20">
-                  <div className="text-base font-medium text-white mb-1">
-                    {new Date().toLocaleTimeString([], {
+
+        </header>
+        <div className="flex flex-grow relative">
+          <TooltipProvider>
+            <div className="relative w-full h-full overflow-hidden bg-gray-900">
+              {/* Map controls */}
+              <div className="absolute top-4 left-4 z-20 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg shadow-lg overflow-hidden">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleZoom("in")}
+                      className="text-white hover:bg-gray-700 border-b border-gray-700/50"
+                    >
+                      <Plus className="h-5 w-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>Zoom In</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleZoom("out")}
+                      className="text-white hover:bg-gray-700"
+                    >
+                      <Minus className="h-5 w-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>Zoom Out</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+
+              {/* Time indicator */}
+              <div className="absolute bottom-8 right-8 z-20 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg shadow-lg p-3">
+                <div className="text-center">
+                  <div className="text-xs text-gray-400">Your Current Time</div>
+                  <div className="text-2xl font-bold text-white">
+                    {currentTime.toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
-                      timeZone: hoveredLocation.timezone,
-                    })}
-                  </div>
-                  <div className="text-xs text-indigo-200 flex items-center gap-1.5">
-                    <span className="inline-block w-2 h-2 rounded-full bg-indigo-400"></span>
-                    {new Date().toLocaleDateString([], {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                      timeZone: hoveredLocation.timezone,
+                      second: "2-digit",
+                      hour12: false,
                     })}
                   </div>
                 </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+
+              {/* Map container */}
+              <div
+                ref={mapRef}
+                className="relative w-full h-full cursor-grab active:cursor-grabbing"
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+              >
+                {/* Map image with filter based on style */}
+                <div
+                  className={`absolute w-full h-full bg-cover bg-center transition-filter duration-500 ${mapStyle === "dark"
+                    ? "map-dark"
+                    : mapStyle === "satellite"
+                      ? "map-satellite"
+                      : mapStyle === "political"
+                        ? "map-political"
+                        : mapStyle === "topographic"
+                          ? "map-topographic"
+                          : ""
+                    }`}
+                  style={{
+                    transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
+                    transformOrigin: "center",
+                    transition: isDragging ? "none" : "transform 0.3s ease",
+                  }}
+                >
+                  {/* Grid overlay */}
+                  <div className="absolute inset-0 grid grid-cols-24 grid-rows-12 pointer-events-none opacity-20">
+                    {Array.from({ length: 24 * 12 }).map((_, index) => (
+                      <div key={index} className="border border-blue-500/10"></div>
+                    ))}
+                  </div>
+
+                  {/* Day/Night shading canvas */}
+                  <canvas
+                    ref={canvasRef}
+                    className="absolute inset-0 pointer-events-none"
+                    style={{
+                      transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
+                      transformOrigin: "center",
+                      transition: isDragging ? "none" : "transform 0.3s ease",
+                    }}
+                  />
+
+                  {/* Sun position */}
+                  <div
+                    className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2"
+                    style={{
+                      left: sunPosition.x,
+                      top: sunPosition.y,
+                      transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) translate(-50%, -50%)`,
+                    }}
+                  >
+                    <div className="relative">
+                      <Sun className="h-8 w-8 text-yellow-500 fill-yellow-500" />
+                      <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-yellow-500/30 animate-pulse" />
+                      <div className="absolute -top-2 -right-2 -left-2 -bottom-2 rounded-full bg-yellow-500/20" />
+                      <div className="absolute -top-4 -right-4 -left-4 -bottom-4 rounded-full bg-yellow-500/10" />
+                      <div className="absolute -top-8 -right-8 -left-8 -bottom-8 rounded-full bg-yellow-500/5 animate-pulse-glow" />
+                    </div>
+
+                  </div>
+                  {/* Moon position */}
+                  <div
+                    className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2"
+                    style={{
+                      left: moonPosition.x,
+                      top: moonPosition.y,
+                      transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) translate(-50%, -50%)`,
+                    }}
+                  >
+                    <div className="relative">
+                      <Moon className="h-7 w-7 text-gray-200 fill-gray-200" />
+                      <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-blue-100/20 animate-pulse" />
+                      <div className="absolute -top-2 -right-2 -left-2 -bottom-2 rounded-full bg-blue-100/10" />
+                      <div className="absolute -top-4 -right-4 -left-4 -bottom-4 rounded-full bg-blue-100/5 animate-pulse-glow" />
+                    </div>
+                  </div>
+
+                  {/* Location markers */}
+                  {locations.map((location) => {
+                    const coords = getCoordinates(location.lat, location.lng)
+                    return (
+                      <button
+                        key={location.name}
+                        className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10 group"
+                        style={{
+                          left: coords.x,
+                          top: coords.y,
+                        }}
+                        onClick={() => handleLocationSelect(location)}
+                        onMouseEnter={() => handleLocationHover(location, coords.x, coords.y)}
+                        onMouseLeave={() => setHoveredLocation(null)}
+                      >
+                        <div className="relative">
+                          <MapPin
+                            className={`h-8 w-8 ${selectedLocation.name === location.name
+                              ? "text-pink-500 fill-pink-500"
+                              : "text-pink-500 group-hover:text-pink-400"
+                              }`}
+                          />
+                          <div
+                            className={`absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full ${selectedLocation.name === location.name
+                              ? "bg-pink-500/30 animate-pulse"
+                              : "bg-transparent group-hover:bg-pink-500/20"
+                              }`}
+                          />
+                          {selectedLocation.name === location.name && (
+                            <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-pink-500/20 animate-ping" />
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Location info popover - Hover-based */}
+              <AnimatePresence>
+                {hoveredLocation && (
+                  <motion.div
+                    ref={popoverRef}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute z-30 pointer-events-none"
+                    style={{
+                      left: popoverPosition.x + 20,
+                      top: popoverPosition.y + 30,
+                      transform: getPopoverTransform(popoverPosition.placement),
+                      width: "115px",
+                    }}
+                  >
+                    {/* Popover arrow */}
+                    {getPopoverArrow(popoverPosition.placement)}
+
+                    <div className="bg-gradient-to-br from-indigo-950/95 to-purple-900/95 backdrop-blur-md text-white rounded-lg border border-indigo-500/30 shadow-xl overflow-hidden">
+                      {/* Header */}
+                      <div className="px-3 py-2 border-b border-indigo-500/20 bg-indigo-900/30">
+                        <h3 className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-indigo-400">
+                          {hoveredLocation.name}
+                        </h3>
+                      </div>
+
+                      {/* Content */}
+                      <div className="p-3 bg-indigo-950/20">
+                        <div className="text-base font-medium text-white mb-1">
+                          {new Date().toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            timeZone: hoveredLocation.timezone,
+                          })}
+                        </div>
+                        <div className="text-xs text-indigo-200 flex items-center gap-1.5">
+                          <span className="inline-block w-2 h-2 rounded-full bg-indigo-400"></span>
+                          {new Date().toLocaleDateString([], {
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                            timeZone: hoveredLocation.timezone,
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </TooltipProvider>
+          <MapControls />
+        </div>
       </div>
-    </TooltipProvider>
+    </div>
   )
 }

@@ -19,13 +19,13 @@ import {
   Sliders,
   Compass,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Slider } from "@/components/ui/slider";
+import { Button } from "../components/ui/button";
+import { Switch } from "../components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Slider } from "../components/ui/slider";
 import { motion } from "framer-motion";
-import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Badge } from "../components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 
 const Section = ({
   title,
@@ -118,7 +118,7 @@ const ResolutionSlider = ({
         min={25}
         max={100}
         step={5}
-        onValueChange={(value) => setMapResolution(value[0])}
+        onValueChange={(value: any) => setMapResolution(value[0])}
         className="flex-1"
       />
       <span className="text-sm w-12 text-center bg-gray-800 rounded-md py-1">{mapResolution}%</span>

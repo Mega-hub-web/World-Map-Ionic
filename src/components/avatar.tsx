@@ -85,7 +85,8 @@ export function Avatar({ path, onUpload }: AvatarProps) {
                     className="w-32 h-32 rounded-full overflow-hidden cursor-pointer border-2 border-indigo-500 shadow-lg shadow-indigo-500/30 flex items-center justify-center bg-gray-800"
                 >
                     {avatarUrl ? (
-                        <img src={"http://localhost:5001" + avatarUrl || "/placeholder.svg"} alt="Avatar" className="w-full h-full object-cover" />
+                        // <img src={"http://localhost:5001" + avatarUrl || "/placeholder.svg"} alt="Avatar" className="w-full h-full object-cover" />
+                        <img src={"https://worldmap-backend.onrender.com" + avatarUrl || "/placeholder.svg"} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
                         <UserCircle className="w-20 h-20 text-gray-400" />
                     )}

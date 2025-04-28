@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 import { Globe, Cloud, Zap, Shield, BarChart, Clock } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "../components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { motion } from "framer-motion"
 
 export default function PremiumFeatures() {

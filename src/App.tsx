@@ -18,7 +18,8 @@ import '@ionic/react/css/text-alignment.css';
 import '@ionic/react/css/text-transformation.css';
 import '@ionic/react/css/flex-utils.css';
 import '@ionic/react/css/display.css';
-
+import { Toaster } from "sonner";
+import MapView from './pages/mapViewPage';
 
 
 /**
@@ -39,10 +40,14 @@ setupIonicReact();
 
 const App: React.FC = () => (
   <IonApp>
+    <Toaster position="top-right" />
     <IonReactRouter>
       <IonRouterOutlet>
         <Route exact path="/home">
           <Home />
+        </Route>
+        <Route exact path="/map-view">
+          <MapView />
         </Route>
         <Route exact path="/">
           <Redirect to="/home" />

@@ -3,27 +3,11 @@
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
-import {
-  MapPin,
-  Plus,
-  Minus,
-  Sun,
-  Moon,
-  Layers,
-  Compass,
-  Search,
-  Info,
-  Clock,
-  MapIcon,
-  Maximize2,
-  Minimize2,
-} from "lucide-react"
+import { MapPin, Plus, Minus, Sun, Moon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { calculateSunPosition, calculateMoonPosition, calculateSunriseSunset } from "@/lib/celestial-calculations"
 import { motion, AnimatePresence } from "framer-motion"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Input } from "@/components/ui/input"
-import { X } from "lucide-react"
 
 interface Location {
   name: string
@@ -37,9 +21,16 @@ interface WorldMapProps {
   onLocationSelect: (location: Location) => void
 }
 
+interface PopupPosition {
+  x: number
+  y: number
+  placement: "top" | "bottom" | "left" | "right"
+}
+
 export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
   const [zoom, setZoom] = useState(1)
   const [isDragging, setIsDragging] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
@@ -49,14 +40,13 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
   const [moonPosition, setMoonPosition] = useState({ x: 0, y: 0 })
   const [is4KEnabled, setIs4KEnabled] = useState(false)
   const [mapStyle, setMapStyle] = useState("dark")
-  const [showMapStyleSelector, setShowMapStyleSelector] = useState(false)
-  const [showLocationInfo, setShowLocationInfo] = useState(false)
-  const [showSearch, setShowSearch] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
+  const [hoveredLocation, setHoveredLocation] = useState<Location | null>(null)
+  const [popoverPosition, setPopoverPosition] = useState<PopupPosition>({ x: 0, y: 0, placement: "top" })
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [sunriseTime, setSunriseTime] = useState<Date | null>(null)
   const [sunsetTime, setSunsetTime] = useState<Date | null>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [isMobile, setIsMobile] = useState(false)
 
   // Sample locations
   const locations: Location[] = [
@@ -69,43 +59,6 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
     { name: "Cairo", timezone: "Africa/Cairo", lat: 30.05, lng: 31.23 },
     { name: "Dubai", timezone: "Asia/Dubai", lat: 25.2, lng: 55.27 },
   ]
-
-  // Map styles
-  const mapStyles = [
-    { id: "dark", name: "Dark", color: "bg-gray-900" },
-    { id: "satellite", name: "Satellite", color: "bg-blue-900" },
-    { id: "political", name: "Political", color: "bg-indigo-900" },
-    { id: "topographic", name: "Topographic", color: "bg-green-900" },
-  ]
-
-  // Time zones data - simplified for demonstration
-  // const timeZones = [
-    // { name: "UTC-12", offset: -12, color: "rgba(20, 20, 80, 0.2)" },
-    // { name: "UTC-11", offset: -11, color: "rgba(30, 30, 90, 0.2)" },
-    // { name: "UTC-10", offset: -10, color: "rgba(40, 40, 100, 0.2)" },
-    // { name: "UTC-9", offset: -9, color: "rgba(50, 50, 110, 0.2)" },
-    // { name: "UTC-8", offset: -8, color: "rgba(60, 60, 120, 0.2)" },
-    // { name: "UTC-7", offset: -7, color: "rgba(70, 70, 130, 0.2)" },
-    // { name: "UTC-6", offset: -6, color: "rgba(80, 80, 140, 0.2)" },
-    // { name: "UTC-5", offset: -5, color: "rgba(90, 90, 150, 0.2)" },
-    // { name: "UTC-4", offset: -4, color: "rgba(100, 100, 160, 0.2)" },
-    // { name: "UTC-3", offset: -3, color: "rgba(110, 110, 170, 0.2)" },
-    // { name: "UTC-2", offset: -2, color: "rgba(120, 120, 180, 0.2)" },
-    // { name: "UTC-1", offset: -1, color: "rgba(130, 130, 190, 0.2)" },
-    // { name: "UTC", offset: 0, color: "rgba(140, 140, 200, 0.2)" },
-    // { name: "UTC+1", offset: 1, color: "rgba(130, 130, 190, 0.2)" },
-    // { name: "UTC+2", offset: 2, color: "rgba(120, 120, 180, 0.2)" },
-    // { name: "UTC+3", offset: 3, color: "rgba(110, 110, 170, 0.2)" },
-    // { name: "UTC+4", offset: 4, color: "rgba(100, 100, 160, 0.2)" },
-    // { name: "UTC+5", offset: 5, color: "rgba(90, 90, 150, 0.2)" },
-    // { name: "UTC+6", offset: 6, color: "rgba(80, 80, 140, 0.2)" },
-    // { name: "UTC+7", offset: 7, color: "rgba(70, 70, 130, 0.2)" },
-    // { name: "UTC+8", offset: 8, color: "rgba(60, 60, 120, 0.2)" },
-    // { name: "UTC+9", offset: 9, color: "rgba(50, 50, 110, 0.2)" },
-    // { name: "UTC+10", offset: 10, color: "rgba(40, 40, 100, 0.2)" },
-    // { name: "UTC+11", offset: 11, color: "rgba(30, 30, 90, 0.2)" },
-    // { name: "UTC+12", offset: 12, color: "rgba(20, 20, 80, 0.2)" },
-  // ]
 
   // Update current time
   useEffect(() => {
@@ -122,6 +75,7 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
       if (mapRef.current) {
         const { width, height } = mapRef.current.getBoundingClientRect()
         setMapDimensions({ width, height })
+        setIsMobile(window.innerWidth < 768)
       }
     }
 
@@ -139,7 +93,7 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
 
     return () => {
       window.removeEventListener("resize", updateDimensions)
-      document.removeEventListener("fullscreenchange", () => {})
+      document.removeEventListener("fullscreenchange", () => { })
     }
   }, [])
 
@@ -183,7 +137,7 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
 
     const ctx = canvas.getContext("2d")
     if (!ctx) return
-
+    
     // Set canvas dimensions to match map
     canvas.width = mapDimensions.width
     canvas.height = mapDimensions.height
@@ -302,45 +256,120 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
     return { x, y }
   }
 
-  // Toggle 4K resolution
-  const toggle4K = () => {
-    setIs4KEnabled((prev) => !prev)
-  }
-
-  // Toggle map style selector
-  const toggleMapStyleSelector = () => {
-    setShowMapStyleSelector((prev) => !prev)
-  }
-
-  // Change map style
-  const changeMapStyle = (style: string) => {
-    setMapStyle(style)
-    setShowMapStyleSelector(false)
-  }
-
-  // Toggle fullscreen
-  const toggleFullscreen = () => {
-    if (!isFullscreen) {
-      if (mapRef.current?.requestFullscreen) {
-        mapRef.current.requestFullscreen()
-      }
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen()
-      }
-    }
-  }
-
   // Format time for display
   const formatTime = (date: Date | null) => {
     if (!date) return "N/A"
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
   }
 
-  // Filter locations based on search query
-  const filteredLocations = locations.filter(
-    (location) => searchQuery === "" || location.name.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+  // Calculate optimal popover position to ensure it's visible
+  const calculatePopoverPosition = (x: number, y: number): PopupPosition => {
+    if (!mapRef.current) return { x, y, placement: "top" };
+
+    const POPOVER_WIDTH = 200;
+    const POPOVER_HEIGHT = 120;
+    const OFFSET = 15;
+    const PADDING = 10;
+
+    const mapRect = mapRef.current.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // Default placement
+    let placement: "top" | "bottom" | "left" | "right" = "top";
+    let posX = x;
+    let posY = y - OFFSET;
+
+    // Adjust placement based on viewport boundaries
+    if (x < POPOVER_WIDTH / 2 + PADDING) {
+      placement = "right";
+      posX = x + OFFSET;
+      posY = y;
+    } else if (x > viewportWidth - POPOVER_WIDTH / 2 - PADDING) {
+      placement = "left";
+      posX = x - OFFSET;
+      posY = y;
+    } else if (y < POPOVER_HEIGHT + OFFSET + PADDING) {
+      placement = "bottom";
+      posY = y + OFFSET;
+    } else if (y > viewportHeight - POPOVER_HEIGHT - OFFSET - PADDING) {
+      placement = "top";
+      posY = y - OFFSET;
+    }
+
+    // Ensure the popover stays within the viewport horizontally
+    posX = Math.max(
+      PADDING,
+      Math.min(posX, viewportWidth - POPOVER_WIDTH - PADDING)
+    );
+
+    // Ensure the popover stays within the viewport vertically
+    posY = Math.max(
+      PADDING,
+      Math.min(posY, viewportHeight - POPOVER_HEIGHT - PADDING)
+    );
+
+    return { x: posX, y: posY, placement };
+  };
+
+  // Handle location hover
+  const handleLocationHover = (location: Location, x: number, y: number) => {
+    // Calculate optimal popover position
+    const position = calculatePopoverPosition(x, y)
+    setPopoverPosition(position)
+    setHoveredLocation(location)
+  }
+
+  // Handle location selection (click)
+  const handleLocationSelect = (location: Location) => {
+    onLocationSelect(location)
+  }
+
+  const getPopoverTransform = (placement: "top" | "bottom" | "left" | "right"): string => {
+    switch (placement) {
+      case "top":
+        return "translate(-50%, -100%)"
+      case "bottom":
+        return "translate(-50%, 0)"
+      case "left":
+        return "translate(-100%, -50%)"
+      case "right":
+        return "translate(0, -50%)"
+      default:
+        return "translate(-50%, -100%)"
+    }
+  }
+
+  const getPopoverArrow = (placement: "top" | "bottom" | "left" | "right"): React.JSX.Element => {
+    switch (placement) {
+      case "top":
+        return (
+          <div className="absolute left-1/2 bottom-0 w-0 h-0 -mb-2 border-l-6 border-r-6 border-t-6 border-transparent border-t-indigo-950/95 -translate-x-1/2" />
+        )
+      case "bottom":
+        return (
+          <div className="absolute left-1/2 top-0 w-0 h-0 -mt-2 border-l-6 border-r-6 border-b-6 border-transparent border-b-indigo-950/95 -translate-x-1/2" />
+        )
+      case "left":
+        return (
+          <div className="absolute top-1/2 right-0 w-0 h-0 -mr-2 border-t-6 border-b-6 border-l-6 border-transparent border-l-indigo-950/95 -translate-y-1/2" />
+        )
+      case "right":
+        return (
+          <div className="absolute top-1/2 left-0 w-0 h-0 -ml-2 border-t-6 border-b-6 border-r-6 border-transparent border-r-indigo-950/95 -translate-y-1/2" />
+        )
+      default:
+        return (
+          <div className="absolute left-1/2 bottom-0 w-0 h-0 -mb-2 border-l-6 border-r-6 border-t-6 border-transparent border-t-indigo-950/95 -translate-x-1/2" />
+        )
+    }
+  }
+
+  const getTimezoneOffset = (timezone: string): string => {
+    const now = new Date()
+    const tzOffset = new Date().toLocaleString("en-US", { timeZone: timezone, timeZoneName: "short" }).split(" ").pop()
+    return tzOffset?.replace("GMT", "") || ""
+  }
 
   return (
     <TooltipProvider>
@@ -380,167 +409,10 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
           </Tooltip>
         </div>
 
-        {/* Map style selector */}
-        {/* <div className="absolute top-4 left-20 z-20">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={toggleMapStyleSelector}
-                className="bg-gray-800/80 backdrop-blur-sm border-gray-700/50 text-white hover:bg-gray-700 flex items-center gap-2"
-              >
-                <Layers className="h-4 w-4" />
-                <span>Map Style</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Change map appearance</p>
-            </TooltipContent>
-          </Tooltip>
-
-          <AnimatePresence>
-            {showMapStyleSelector && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="absolute top-10 left-0 bg-gray-800/90 backdrop-blur-sm border border-gray-700/50 rounded-lg shadow-lg p-2 w-40 z-30"
-              >
-                {mapStyles.map((style) => (
-                  <button
-                    key={style.id}
-                    onClick={() => changeMapStyle(style.id)}
-                    className={`flex items-center gap-2 w-full text-left px-3 py-2 rounded-md text-sm ${
-                      mapStyle === style.id ? "bg-indigo-600 text-white" : "text-gray-200 hover:bg-gray-700"
-                    }`}
-                  >
-                    <div className={`w-3 h-3 rounded-full ${style.color}`} />
-                    {style.name}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div> */}
-
-        {/* Search button */}
-        {/* <div className="absolute top-4 right-24 z-20">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setShowSearch((prev) => !prev)}
-                className={`bg-gray-800/80 backdrop-blur-sm border-gray-700/50 text-white hover:bg-gray-700 ${
-                  showSearch ? "bg-indigo-600 border-indigo-500" : ""
-                }`}
-              >
-                <Search className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              <p>Search locations</p>
-            </TooltipContent>
-          </Tooltip>
-
-          <AnimatePresence>
-            {showSearch && (
-              <motion.div
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: 250 }}
-                exit={{ opacity: 0, width: 0 }}
-                className="absolute top-0 right-12 overflow-hidden"
-              >
-                <div className="bg-gray-800/90 backdrop-blur-sm border border-gray-700/50 rounded-lg shadow-lg p-3">
-                  <Input
-                    type="text"
-                    placeholder="Search locations..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-gray-700 border-gray-600 text-white"
-                    autoFocus
-                  />
-
-                  {searchQuery && (
-                    <div className="mt-2 max-h-60 overflow-y-auto">
-                      {filteredLocations.length > 0 ? (
-                        filteredLocations.map((location) => (
-                          <button
-                            key={location.name}
-                            onClick={() => {
-                              onLocationSelect(location)
-                              setSearchQuery("")
-                              setShowSearch(false)
-                            }}
-                            className="flex items-center gap-2 w-full text-left px-3 py-2 rounded-md text-sm text-gray-200 hover:bg-gray-700"
-                          >
-                            <MapPin className="h-4 w-4 text-pink-500" />
-                            {location.name}
-                          </button>
-                        ))
-                      ) : (
-                        <p className="text-sm text-gray-400 p-2">No locations found</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div> */}
-
-        {/* 4K toggle */}
-        {/* <div className="absolute top-4 right-4 z-20 flex gap-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={toggleFullscreen}
-                className="bg-gray-800/80 backdrop-blur-sm border-gray-700/50 text-white hover:bg-gray-700"
-              >
-                {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              <p>{isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}</p>
-            </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={toggle4K}
-                className={`${
-                  is4KEnabled
-                    ? "bg-indigo-600 border-indigo-500 text-white"
-                    : "bg-gray-800/80 backdrop-blur-sm border-gray-700/50 text-white hover:bg-gray-700"
-                }`}
-              >
-                {is4KEnabled ? "4K Enabled" : "4K Display"}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              <p>Toggle high-resolution map</p>
-            </TooltipContent>
-          </Tooltip>
-        </div> */}
-
-        {/* Compass */}
-        {/* <div className="absolute bottom-8  z-20">
-          <div className="relative w-16 h-16">
-            <div className="absolute inset-0 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-full shadow-lg"></div>
-            <Compass className="absolute inset-0 m-auto h-10 w-10 text-white" />
-          </div>
-        </div> */}
-
         {/* Time indicator */}
         <div className="absolute bottom-8 right-8 z-20 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg shadow-lg p-3">
           <div className="text-center">
-            <div className="text-xs text-gray-400">Current Time (UTC)</div>
+            <div className="text-xs text-gray-400">Your Current Time</div>
             <div className="text-2xl font-bold text-white">
               {currentTime.toLocaleTimeString([], {
                 hour: "2-digit",
@@ -563,8 +435,7 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
         >
           {/* Map image with filter based on style */}
           <div
-            className={`absolute w-full h-full bg-cover bg-center transition-filter duration-500 ${
-              mapStyle === "dark"
+            className={`absolute w-full h-full bg-cover bg-center transition-filter duration-500 ${mapStyle === "dark"
                 ? "map-dark"
                 : mapStyle === "satellite"
                   ? "map-satellite"
@@ -573,13 +444,11 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
                     : mapStyle === "topographic"
                       ? "map-topographic"
                       : ""
-            }`}
+              }`}
             style={{
-              // backgroundImage: "url('/map-dark.png')",
               transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
               transformOrigin: "center",
               transition: isDragging ? "none" : "transform 0.3s ease",
-              // imageRendering: is4KEnabled ? "high-quality" : "auto",
             }}
           >
             {/* Grid overlay */}
@@ -587,30 +456,6 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
               {Array.from({ length: 24 * 12 }).map((_, index) => (
                 <div key={index} className="border border-blue-500/10"></div>
               ))}
-            </div>
-
-            {/* Time zone overlays */}
-            <div className="absolute inset-0 pointer-events-none">
-             {/* {timeZones.map((zone, index) => {
-                const zoneWidth = mapDimensions.width / timeZones.length
-                const left = index * zoneWidth + position.x
-
-                return (
-                  <div
-                    key={zone.name}
-                    className="absolute h-full border-l border-blue-500/30 flex items-start justify-center"
-                    style={{
-                      left: `${(index * 100) / timeZones.length}%`,
-                      width: `${100 / timeZones.length}%`,
-                      backgroundColor: zone.color,
-                    }}
-                  >
-                    <div className="bg-indigo-900/80 text-white text-xs px-2 py-1 mt-2 rounded-full shadow-lg backdrop-blur-sm border border-indigo-800/50">
-                      {zone.name}
-                    </div>
-                  </div>
-                )
-              })}*/}
             </div>
 
             {/* Day/Night shading canvas */}
@@ -670,36 +515,26 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
                     left: coords.x,
                     top: coords.y,
                   }}
-                  onClick={() => {
-                    onLocationSelect(location)
-                    setShowLocationInfo(true)
-                  }}
+                  onClick={() => handleLocationSelect(location)}
+                  onMouseEnter={() => handleLocationHover(location, coords.x, coords.y)}
+                  onMouseLeave={() => setHoveredLocation(null)}
                 >
                   <div className="relative">
                     <MapPin
-                      className={`h-8 w-8 ${
-                        selectedLocation.name === location.name
+                      className={`h-8 w-8 ${selectedLocation.name === location.name
                           ? "text-pink-500 fill-pink-500"
                           : "text-pink-500 group-hover:text-pink-400"
-                      }`}
+                        }`}
                     />
                     <div
-                      className={`absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full ${
-                        selectedLocation.name === location.name
+                      className={`absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full ${selectedLocation.name === location.name
                           ? "bg-pink-500/30 animate-pulse"
                           : "bg-transparent group-hover:bg-pink-500/20"
-                      }`}
+                        }`}
                     />
                     {selectedLocation.name === location.name && (
                       <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-pink-500/20 animate-ping" />
                     )}
-                  </div>
-                  <div
-                    className={`absolute top-8 left-1/2 transform -translate-x-1/2 bg-gray-900/90 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity ${
-                      selectedLocation.name === location.name ? "opacity-100" : ""
-                    }`}
-                  >
-                    {location.name}
                   </div>
                 </button>
               )
@@ -707,102 +542,54 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
           </div>
         </div>
 
-        {/* Location info popup */}
+        {/* Location info popover - Hover-based */}
         <AnimatePresence>
-          {showLocationInfo && selectedLocation && (
+          {hoveredLocation && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              className="absolute top-20 left-10 bg-gray-900/90 backdrop-blur-md text-white p-5 rounded-lg border border-gray-700/50 shadow-xl z-30 max-w-xs overflow-auto"
+              ref={popoverRef}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.15 }}
+              className="absolute z-30 pointer-events-none"
+              style={{
+                left: popoverPosition.x + 20,
+                top: popoverPosition.y + 30,
+                transform: getPopoverTransform(popoverPosition.placement),
+                width: "115px",
+              }}
             >
-              <div className="flex justify-between items-start mb-3">
-                <h3 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-indigo-500">
-                  {selectedLocation.name}
-                </h3>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-gray-400 hover:text-white -mt-1 -mr-1"
-                  onClick={() => setShowLocationInfo(false)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
+              {/* Popover arrow */}
+              {getPopoverArrow(popoverPosition.placement)}
 
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-indigo-400" />
-                  <span className="text-gray-300">Timezone: {selectedLocation.timezone}</span>
+              <div className="bg-gradient-to-br from-indigo-950/95 to-purple-900/95 backdrop-blur-md text-white rounded-lg border border-indigo-500/30 shadow-xl overflow-hidden">
+                {/* Header */}
+                <div className="px-3 py-2 border-b border-indigo-500/20 bg-indigo-900/30">
+                  <h3 className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-indigo-400">
+                    {hoveredLocation.name}
+                  </h3>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <MapIcon className="h-4 w-4 text-indigo-400" />
-                  <span className="text-gray-300">
-                    Coordinates: {selectedLocation.lat.toFixed(2)}, {selectedLocation.lng.toFixed(2)}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <div className="bg-gray-800/50 rounded-md p-2">
-                    <div className="flex items-center gap-1 text-xs text-amber-400">
-                      <Sun className="h-3 w-3" />
-                      <span>Sunrise</span>
-                    </div>
-                    <p className="text-white font-medium">{formatTime(sunriseTime)}</p>
-                  </div>
-
-                  <div className="bg-gray-800/50 rounded-md p-2">
-                    <div className="flex items-center gap-1 text-xs text-indigo-400">
-                      <Moon className="h-3 w-3" />
-                      <span>Sunset</span>
-                    </div>
-                    <p className="text-white font-medium">{formatTime(sunsetTime)}</p>
-                  </div>
-                </div>
-
-                <div className="bg-indigo-900/30 rounded-md p-2 mt-2">
-                  <div className="flex items-center gap-1 text-xs text-indigo-300">
-                    <Info className="h-3 w-3" />
-                    <span>Local Time</span>
-                  </div>
-                  <div className="text-white font-bold text-lg">
+                {/* Content */}
+                <div className="p-3 bg-indigo-950/20">
+                  <div className="text-base font-medium text-white mb-1">
                     {new Date().toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
-                      timeZone: selectedLocation.timezone,
+                      timeZone: hoveredLocation.timezone,
                     })}
                   </div>
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-indigo-200 flex items-center gap-1.5">
+                    <span className="inline-block w-2 h-2 rounded-full bg-indigo-400"></span>
                     {new Date().toLocaleDateString([], {
                       weekday: "short",
                       month: "short",
                       day: "numeric",
-                      timeZone: selectedLocation.timezone,
+                      timeZone: hoveredLocation.timezone,
                     })}
                   </div>
                 </div>
               </div>
-
-                <div className="mt-4 pt-3 border-t border-gray-700/50 flex justify-between">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-indigo-400 hover:text-indigo-300 hover:bg-indigo-950/50 px-2"
-                  >
-                    <Clock className="h-4 w-4 mr-1" />
-                    Add to Favorites
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-indigo-400 hover:text-indigo-300 hover:bg-indigo-950/50 px-2"
-                  >
-                    <Info className="h-4 w-4 mr-1" />
-                    More Details
-                  </Button>
-                </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -810,4 +597,3 @@ export default function WorldMap({ selectedLocation, onLocationSelect }: WorldMa
     </TooltipProvider>
   )
 }
-

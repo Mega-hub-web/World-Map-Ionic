@@ -128,7 +128,7 @@ export default function WorldMap() {
 
         map.current = new mapboxgl.Map({
           container: mapRef.current,
-          style: 'mapbox://styles/mapbox/streets-v12',
+          style: 'mapbox://styles/mapbox/satellite-v8',
           center: [0, 0],
           zoom: zoom,
           minZoom: 1,

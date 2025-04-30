@@ -10,6 +10,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip"
 import CityTimeDisplay from "../components/city-time-display"
 import MapControls from "../components/map-controls"
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 interface Location {
   name: string
@@ -25,6 +27,9 @@ interface PopupPosition {
   y: number
   placement: "top" | "bottom" | "left" | "right"
 }
+
+mapboxgl.accessToken = 'pk.eyJ1Ijoid2lrdG9ybWFqZXdza2kiLCJhIjoiY21hMzE5NjQ1MnVkNjJpbXcwMTd3amF1eSJ9.KNyiWLR--nOYTG1t9RYUcw';
+
 
 export default function WorldMap() {
   const mapRef = useRef<HTMLDivElement>(null)
@@ -46,7 +51,7 @@ export default function WorldMap() {
   const [sunsetTime, setSunsetTime] = useState<Date | null>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [isMobile, setIsMobile] = useState(false)
-
+  const map = useRef<mapboxgl.Map | null>(null);
 
   // Sample locations
   const locations: Location[] = [
@@ -83,65 +88,132 @@ export default function WorldMap() {
   }, [])
 
   // Initialize map dimensions and set up event listeners
+  // useEffect(() => {
+  //   const updateDimensions = () => {
+  //     if (mapRef.current) {
+  //       const { width, height } = mapRef.current.getBoundingClientRect();
+  //       // console.log(width, height)
+  //       setMapDimensions({ width, height })
+  //       setIsMobile(window.innerWidth < 768)
+  //     }
+  //   }
+
+  //   updateDimensions()
+  //   window.addEventListener("resize", updateDimensions)
+
+  //   // Check if device supports 4K
+  //   const mediaQuery = window.matchMedia("(min-resolution: 192dpi), (min-resolution: 2dppx)")
+  //   setIs4KEnabled(mediaQuery.matches)
+
+  //   // Setup fullscreen change event
+  //   document.addEventListener("fullscreenchange", () => {
+  //     setIsFullscreen(!!document.fullscreenElement)
+  //   })
+
+  //   return () => {
+  //     window.removeEventListener("resize", updateDimensions)
+  //     document.removeEventListener("fullscreenchange", () => { })
+  //   }
+  // }, [])
+
   useEffect(() => {
-    const updateDimensions = () => {
-      if (mapRef.current) {
-        const { width, height } = mapRef.current.getBoundingClientRect()
-        setMapDimensions({ width, height })
-        setIsMobile(window.innerWidth < 768)
-      }
+    if (!map.current && mapRef.current) {
+      // Wait for the container to be properly sized
+      const initializeMap = () => {
+        if (!mapRef.current) return;
+
+        // Force container dimensions before map creation
+        mapRef.current.style.width = '100%';
+        mapRef.current.style.height = '100%';
+
+        map.current = new mapboxgl.Map({
+          container: mapRef.current,
+          style: 'mapbox://styles/mapbox/streets-v12',
+          center: [0, 0],
+          zoom: zoom,
+          minZoom: 1,
+          maxZoom: 18,
+          pitch: 0,
+          bearing: 0,
+          attributionControl: false,
+          projection: 'mercator'
+        });
+
+        map.current.on('load', () => {
+          // Hide logo if needed
+          const logo = document.querySelector('.mapboxgl-ctrl-logo') as HTMLElement;
+          if (logo) {
+            logo.style.display = 'none';
+          }
+
+          // Force resize after load
+          map.current?.resize();
+        });
+      };
+
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        initializeMap();
+      });
     }
-
-    updateDimensions()
-    window.addEventListener("resize", updateDimensions)
-
-    // Check if device supports 4K
-    const mediaQuery = window.matchMedia("(min-resolution: 192dpi), (min-resolution: 2dppx)")
-    setIs4KEnabled(mediaQuery.matches)
-
-    // Setup fullscreen change event
-    document.addEventListener("fullscreenchange", () => {
-      setIsFullscreen(!!document.fullscreenElement)
-    })
 
     return () => {
-      window.removeEventListener("resize", updateDimensions)
-      document.removeEventListener("fullscreenchange", () => { })
-    }
-  }, [])
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+      }
+    };
+  }, [zoom]);
+
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (map.current) {
+        map.current.resize();
+      }
+    });
+
+    resizeObserver.observe(mapRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   // Update sun and moon positions
-  useEffect(() => {
-    const updateCelestialPositions = () => {
-      const now = new Date()
+  // useEffect(() => {
+  //   const updateCelestialPositions = () => {
+  //     const now = new Date()
 
-      // Calculate sun position
-      const sunPos = calculateSunPosition(now)
-      const sunX = (sunPos.longitude + 180) * (mapDimensions.width / 360)
-      const sunY = (90 - sunPos.latitude) * (mapDimensions.height / 180)
-      setSunPosition({ x: sunX, y: sunY })
+  //     // Calculate sun position
+  //     const sunPos = calculateSunPosition(now)
+  //     const sunX = (sunPos.longitude + 180) * (mapDimensions.width / 360)
+  //     const sunY = (90 - sunPos.latitude) * (mapDimensions.height / 180)
+  //     setSunPosition({ x: sunX, y: sunY })
 
-      // Calculate moon position
-      const moonPos = calculateMoonPosition(now)
-      const moonX = (moonPos.longitude + 180) * (mapDimensions.width / 360)
-      const moonY = (90 - moonPos.latitude) * (mapDimensions.height / 180)
-      setMoonPosition({ x: moonX, y: moonY })
+  //     // Calculate moon position
+  //     const moonPos = calculateMoonPosition(now)
+  //     const moonX = (moonPos.longitude + 180) * (mapDimensions.width / 360)
+  //     const moonY = (90 - moonPos.latitude) * (mapDimensions.height / 180)
+  //     setMoonPosition({ x: moonX, y: moonY })
 
-      // Calculate sunrise/sunset for selected location
-      const sunTimes = calculateSunriseSunset(now, selectedLocation.lat, selectedLocation.lng)
-      setSunriseTime(sunTimes.sunrise)
-      setSunsetTime(sunTimes.sunset)
+  //     // Calculate sunrise/sunset for selected location
+  //     const sunTimes = calculateSunriseSunset(now, selectedLocation.lat, selectedLocation.lng)
+  //     setSunriseTime(sunTimes.sunrise)
+  //     setSunsetTime(sunTimes.sunset)
 
-      // Render day/night shading
-      renderDayNightShading(sunPos.longitude, sunPos.latitude)
-    }
+  //     // Render day/night shading
+  //     renderDayNightShading(sunPos.longitude, sunPos.latitude)
+  //   }
 
-    if (mapDimensions.width > 0 && mapDimensions.height > 0) {
-      updateCelestialPositions()
-      const interval = setInterval(updateCelestialPositions, 60000) // Update every minute
-      return () => clearInterval(interval)
-    }
-  }, [mapDimensions, selectedLocation])
+  //   if (mapDimensions.width > 0 && mapDimensions.height > 0) {
+  //     updateCelestialPositions()
+  //     const interval = setInterval(updateCelestialPositions, 60000) // Update every minute
+  //     return () => clearInterval(interval)
+  //   }
+  // }, [mapDimensions, selectedLocation])
 
   // Render day/night shading on canvas
   const renderDayNightShading = (sunLongitude: number, sunLatitude: number) => {
@@ -385,8 +457,8 @@ export default function WorldMap() {
   }
 
   return (
-    <div>
-      <div className="flex flex-col h-screen">
+    <div className="h-screen w-screen overflow-hidden">
+      <div className="flex flex-col h-full w-full">
         {/* Header with clocks */}
         <header className="bg-gradient-to-r from-indigo-900 to-purple-900 text-white p-2 flex items-center overflow-x-auto shadow-lg z-10">
           <div className="ml-auto flex space-x-1 overflow-x-auto">
@@ -418,43 +490,9 @@ export default function WorldMap() {
 
 
         </header>
-        <div className="flex flex-grow relative">
+        <div className="relative flex-1 w-full">
           <TooltipProvider>
             <div className="relative w-full h-full overflow-hidden bg-gray-900">
-              {/* Map controls */}
-              <div className="absolute top-4 left-4 z-20 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg shadow-lg overflow-hidden">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleZoom("in")}
-                      className="text-white hover:bg-gray-700 border-b border-gray-700/50"
-                    >
-                      <Plus className="h-5 w-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                    <p>Zoom In</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleZoom("out")}
-                      className="text-white hover:bg-gray-700"
-                    >
-                      <Minus className="h-5 w-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                    <p>Zoom Out</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
 
               {/* Time indicator */}
               <div className="absolute bottom-8 right-8 z-20 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg shadow-lg p-3">
@@ -474,177 +512,15 @@ export default function WorldMap() {
               {/* Map container */}
               <div
                 ref={mapRef}
-                className="relative w-full h-full cursor-grab active:cursor-grabbing"
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
+                className="absolute inset-0 w-full h-full"
+                style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
               >
-                {/* Map image with filter based on style */}
-                <div
-                  className={`absolute w-full h-full bg-cover bg-center transition-filter duration-500 ${mapStyle === "dark"
-                    ? "map-dark"
-                    : mapStyle === "satellite"
-                      ? "map-satellite"
-                      : mapStyle === "political"
-                        ? "map-political"
-                        : mapStyle === "topographic"
-                          ? "map-topographic"
-                          : ""
-                    }`}
-                  style={{
-                    transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
-                    transformOrigin: "center",
-                    transition: isDragging ? "none" : "transform 0.3s ease",
-                  }}
-                >
-                  {/* Grid overlay */}
-                  <div className="absolute inset-0 grid grid-cols-24 grid-rows-12 pointer-events-none opacity-20">
-                    {Array.from({ length: 24 * 12 }).map((_, index) => (
-                      <div key={index} className="border border-blue-500/10"></div>
-                    ))}
-                  </div>
-
-                  {/* Day/Night shading canvas */}
-                  <canvas
-                    ref={canvasRef}
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                      transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
-                      transformOrigin: "center",
-                      transition: isDragging ? "none" : "transform 0.3s ease",
-                    }}
-                  />
-
-                  {/* Sun position */}
-                  <div
-                    className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2"
-                    style={{
-                      left: sunPosition.x,
-                      top: sunPosition.y,
-                      transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) translate(-50%, -50%)`,
-                    }}
-                  >
-                    <div className="relative">
-                      <Sun className="h-8 w-8 text-yellow-500 fill-yellow-500" />
-                      <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-yellow-500/30 animate-pulse" />
-                      <div className="absolute -top-2 -right-2 -left-2 -bottom-2 rounded-full bg-yellow-500/20" />
-                      <div className="absolute -top-4 -right-4 -left-4 -bottom-4 rounded-full bg-yellow-500/10" />
-                      <div className="absolute -top-8 -right-8 -left-8 -bottom-8 rounded-full bg-yellow-500/5 animate-pulse-glow" />
-                    </div>
-
-                  </div>
-                  {/* Moon position */}
-                  <div
-                    className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2"
-                    style={{
-                      left: moonPosition.x,
-                      top: moonPosition.y,
-                      transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) translate(-50%, -50%)`,
-                    }}
-                  >
-                    <div className="relative">
-                      <Moon className="h-7 w-7 text-gray-200 fill-gray-200" />
-                      <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-blue-100/20 animate-pulse" />
-                      <div className="absolute -top-2 -right-2 -left-2 -bottom-2 rounded-full bg-blue-100/10" />
-                      <div className="absolute -top-4 -right-4 -left-4 -bottom-4 rounded-full bg-blue-100/5 animate-pulse-glow" />
-                    </div>
-                  </div>
-
-                  {/* Location markers */}
-                  {locations.map((location) => {
-                    const coords = getCoordinates(location.lat, location.lng)
-                    return (
-                      <button
-                        key={location.name}
-                        className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10 group"
-                        style={{
-                          left: coords.x,
-                          top: coords.y,
-                        }}
-                        onClick={() => handleLocationSelect(location)}
-                        onMouseEnter={() => handleLocationHover(location, coords.x, coords.y)}
-                        onMouseLeave={() => setHoveredLocation(null)}
-                      >
-                        <div className="relative">
-                          <MapPin
-                            className={`h-8 w-8 ${selectedLocation.name === location.name
-                              ? "text-pink-500 fill-pink-500"
-                              : "text-pink-500 group-hover:text-pink-400"
-                              }`}
-                          />
-                          <div
-                            className={`absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full ${selectedLocation.name === location.name
-                              ? "bg-pink-500/30 animate-pulse"
-                              : "bg-transparent group-hover:bg-pink-500/20"
-                              }`}
-                          />
-                          {selectedLocation.name === location.name && (
-                            <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-pink-500/20 animate-ping" />
-                          )}
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
               </div>
-
-              {/* Location info popover - Hover-based */}
-              <AnimatePresence>
-                {hoveredLocation && (
-                  <motion.div
-                    ref={popoverRef}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute z-30 pointer-events-none"
-                    style={{
-                      left: popoverPosition.x + 20,
-                      top: popoverPosition.y + 30,
-                      transform: getPopoverTransform(popoverPosition.placement),
-                      width: "115px",
-                    }}
-                  >
-                    {/* Popover arrow */}
-                    {getPopoverArrow(popoverPosition.placement)}
-
-                    <div className="bg-gradient-to-br from-indigo-950/95 to-purple-900/95 backdrop-blur-md text-white rounded-lg border border-indigo-500/30 shadow-xl overflow-hidden">
-                      {/* Header */}
-                      <div className="px-3 py-2 border-b border-indigo-500/20 bg-indigo-900/30">
-                        <h3 className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-indigo-400">
-                          {hoveredLocation.name}
-                        </h3>
-                      </div>
-
-                      {/* Content */}
-                      <div className="p-3 bg-indigo-950/20">
-                        <div className="text-base font-medium text-white mb-1">
-                          {new Date().toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            timeZone: hoveredLocation.timezone,
-                          })}
-                        </div>
-                        <div className="text-xs text-indigo-200 flex items-center gap-1.5">
-                          <span className="inline-block w-2 h-2 rounded-full bg-indigo-400"></span>
-                          {new Date().toLocaleDateString([], {
-                            weekday: "short",
-                            month: "short",
-                            day: "numeric",
-                            timeZone: hoveredLocation.timezone,
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </div>
           </TooltipProvider>
-          <MapControls />
+          {/* <MapControls /> */}
         </div>
-      </div>
-    </div>
+      </div >
+    </div >
   )
 }

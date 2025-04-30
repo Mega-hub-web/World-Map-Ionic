@@ -1,0 +1,130 @@
+/* Required Mapbox styles */
+@import 'mapbox-gl/dist/mapbox-gl.css';
+
+/* Custom map styles */
+.mapboxgl-map {
+  width: 100% ;
+  height: 100% ;
+}
+
+/* Custom styles for cont rols */
+.mapboxgl-ctrl-group {
+  background-color: rgba(35, 35, 35, 0.8) !important;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.mapboxgl-ctrl button {
+  color: white !important;
+}
+
+.mapboxgl-ctrl button:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Custom popup styles */
+.mapboxgl-popup-content {
+  background-color: rgba(35, 35, 35, 0.9) !important;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.mapboxgl-popup-tip {
+  border-top-color: rgba(35, 35, 35, 0.9) !important;
+}
+
+/* Map container styles */
+.map-container {
+  width: 100%;
+  height: 100vh;
+  position: relative;
+}
+
+/* Dark theme for the map */
+.leaflet-tile-pane {
+  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+}
+
+/* Custom popup styles */
+.earthquake-popup {
+  padding: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.earthquake-popup strong {
+  color: #666;
+  margin-right: 4px;
+}
+
+.leaflet-popup-content-wrapper {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.leaflet-popup-tip {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.blue-marble-layer {
+  image-rendering: high-quality;
+  image-rendering: -webkit-optimize-contrast;
+}
+
+/* Ensure Leaflet controls stay below our custom controls */
+.leaflet-control-container {
+  z-index: 400 !important;
+}
+
+/* Ensure Leaflet panes stay below our custom controls */
+.leaflet-pane {
+  z-index: 400 !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 400 !important;
+}
+
+/* Ensure tooltips appear above everything */
+.leaflet-tooltip {
+  z-index: 1001 !important;
+}
+
+/* Ensure popups appear above everything */
+.leaflet-popup {
+  z-index: 1002 !important;
+}
+
+/* Custom controls should be above map */
+.map-controls {
+  z-index: 1000;
+}
+
+/* Ensure Mapbox canvas takes full size */
+.mapboxgl-canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.mapboxgl-map {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Hide Mapbox logo */
+.mapboxgl-ctrl-logo {
+  display: none !important;
+}
+
+/* Hide Mapbox attribution */
+.mapboxgl-ctrl-attrib {
+  display: none !important;
+}
+
+
+

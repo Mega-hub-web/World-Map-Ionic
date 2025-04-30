@@ -27,6 +27,14 @@ import { motion } from "framer-motion";
 import { Badge } from "../components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 
+interface MapControlsProps {
+  position?: string;
+  mapStyle: string;
+  setMapStyle: (style: string) => void;
+  showNasaMap: boolean;
+  setShowNasaMap: (show: boolean) => void;
+}
+
 const Section = ({
   title,
   icon: Icon,
@@ -152,13 +160,18 @@ const ToggleButtons = ({
   </div>
 );
 
-export default function MapControls() {
+export default function MapControls({
+  position = 'topright',
+  mapStyle,
+  setMapStyle,
+  showNasaMap,
+  setShowNasaMap
+}: MapControlsProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("layers");
 
   // Map settings
   const [mapResolution, setMapResolution] = useState(75);
-  const [mapStyle, setMapStyle] = useState("dark");
   const [timeFormat, setTimeFormat] = useState("24h");
   const [tempUnit, setTempUnit] = useState("celsius");
   const [enable4K, setEnable4K] = useState(true);

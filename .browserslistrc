@@ -1,6 +1,7 @@
-Chrome >=79
-ChromeAndroid >=79
-Firefox >=70
+Chrome >=67
+ChromeAndroid >=67
+Firefox >=68
 Edge >=79
-Safari >=14
-iOS >=14
+Safari >=14.1
+iOS >=14.5
+

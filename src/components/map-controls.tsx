@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Layers,
   Settings,
@@ -26,6 +26,9 @@ import { Slider } from "../components/ui/slider";
 import { motion } from "framer-motion";
 import { Badge } from "../components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
+import { fetchData, postData } from "../servics/apiService";
+import { toast } from "sonner";
+import { jwtDecode } from "jwt-decode";
 
 interface MapControlsProps {
   position?: string;
@@ -34,6 +37,19 @@ interface MapControlsProps {
   showNasaMap: boolean;
   setShowNasaMap: (show: boolean) => void;
 }
+
+
+interface MapSettings {
+
+  showTimeZones: boolean;
+  showDayNight: boolean;
+  showSunMoon: boolean;
+  showWeather: boolean;
+  showEarthquakes: boolean;
+  showAirTraffic: boolean;
+  timeFormat: string;
+}
+
 
 const Section = ({
   title,
@@ -160,28 +176,237 @@ const ToggleButtons = ({
   </div>
 );
 
-export default function MapControls({
-  position = 'topright',
-  mapStyle,
-  setMapStyle,
-  showNasaMap,
-  setShowNasaMap
-}: MapControlsProps) {
+export default function MapControls() {
   const [isOpen, setIsOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("layers");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [lastSavedSettings, setLastSavedSettings] = useState<MapSettings | null>(null);
+
+  // Track if component is mounted
+  const isMounted = useRef(true);
 
   // Map settings
   const [mapResolution, setMapResolution] = useState(75);
   const [timeFormat, setTimeFormat] = useState("24h");
-  const [tempUnit, setTempUnit] = useState("celsius");
-  const [enable4K, setEnable4K] = useState(true);
-  const [smoothAnimations, setSmoothAnimations] = useState(true);
   const [showTimeZones, setShowTimeZones] = useState(true);
   const [showDayNight, setShowDayNight] = useState(true);
   const [showSunMoon, setShowSunMoon] = useState(true);
-  const [showWeather, setShowWeather] = useState(false)
-  const [showEarthquakes, setShowEarthquakes] = useState(false)
-  const [showAirTraffic, setShowAirTraffic] = useState(false)
+  const [showWeather, setShowWeather] = useState(false);
+  const [showEarthquakes, setShowEarthquakes] = useState(false);
+  const [showAirTraffic, setShowAirTraffic] = useState(false);
+
+  // Helper function to get current user ID
+  const getCurrentUserId = useCallback((): string | null => {
+    const token = localStorage.getItem('authToken');
+    if (!token) return null;
+
+    try {
+      const decoded = jwtDecode<{ id: string }>(token);
+      return decoded?.id;
+    } catch (error) {
+      console.error("Error decoding JWT token:", error);
+      return null;
+    }
+  }, []);
+
+  // Collect current settings
+  const getCurrentSettings = useCallback((): MapSettings => {
+    return {
+      timeFormat,
+      showTimeZones,
+      showDayNight,
+      showSunMoon,
+      showWeather,
+      showEarthquakes,
+      showAirTraffic
+    };
+  }, [
+    timeFormat,
+    showTimeZones,
+    showDayNight,
+    showSunMoon,
+    showWeather,
+    showEarthquakes,
+    showAirTraffic
+  ]);
+
+  // Check if settings have changed
+  useEffect(() => {
+    if (!lastSavedSettings) return;
+
+    const currentSettings = getCurrentSettings();
+    const settingsChanged = JSON.stringify(currentSettings) !== JSON.stringify(lastSavedSettings);
+
+    setHasUnsavedChanges(settingsChanged);
+  }, [
+    getCurrentSettings,
+    lastSavedSettings,
+
+    mapResolution,
+    timeFormat,
+
+    showTimeZones,
+    showDayNight,
+    showSunMoon,
+    showWeather,
+    showEarthquakes,
+    showAirTraffic
+  ]);
+
+  // Fetch settings from backend on component mount
+  useEffect(() => {
+    const fetchMapSettings = async () => {
+      const userId = getCurrentUserId();
+      if (!userId) {
+        setIsLoading(false);
+        return; // Use default settings for non-logged in users
+      }
+
+      try {
+        const response = await fetchData(`/map-settings/${userId}`);
+        if (response && response.data) {
+          const settings = response.data;
+
+          // Update all settings from backend
+
+          setMapResolution(settings.mapResolution || 75);
+          setTimeFormat(settings.timeFormat || "24h");
+
+          setShowTimeZones(settings.showTimeZones || true);
+          setShowDayNight(settings.showDayNight || true);
+          setShowSunMoon(settings.showSunMoon || true);
+          setShowWeather(settings.showWeather || false);
+          setShowEarthquakes(settings.showEarthquakes || false);
+          setShowAirTraffic(settings.showAirTraffic || false);
+
+          // Store last saved settings
+          setLastSavedSettings(settings);
+
+          console.log("Map settings loaded from server:", settings);
+        }
+      } catch (error) {
+        console.error("Error fetching map settings:", error);
+        // Continue with default settings
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchMapSettings();
+
+    // Set isMounted to false when component unmounts
+    return () => {
+      isMounted.current = false;
+    };
+  }, [getCurrentUserId]);
+
+  // Save settings to backend
+  const saveSettingsToBackend = async () => {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      console.log("User not logged in, settings not saved");
+      return false;
+    }
+
+    if (!hasUnsavedChanges) {
+      console.log("No changes to save");
+      return true; // No need to save if nothing changed
+    }
+
+    setIsSaving(true);
+
+    // Collect all settings
+    const settings = getCurrentSettings();
+
+    try {
+      const response = await postData(`/map-settings/${userId}`, settings);
+      console.log("Map settings saved to server:", response);
+
+      // Update last saved settings
+      if (isMounted.current) {
+        setLastSavedSettings(settings);
+        setHasUnsavedChanges(false);
+      }
+
+      // Dispatch event for other components to react to settings changes
+      const event = new CustomEvent('mapSettingsChanged', {
+        detail: { type: 'SETTINGS_SAVED', settings }
+      });
+      window.dispatchEvent(event);
+
+      return true;
+    } catch (error) {
+      console.error("Error saving map settings:", error);
+      if (isMounted.current) {
+        toast.error("Failed to save settings");
+      }
+      return false;
+    } finally {
+      if (isMounted.current) {
+        setIsSaving(false);
+      }
+    }
+  };
+
+  // Handle closing the panel
+  const handleClosePanel = async () => {
+    // If there are unsaved changes, save them before closing
+    if (hasUnsavedChanges) {
+      setIsSaving(true);
+      const success = await saveSettingsToBackend();
+      if (success) {
+        toast.success("Settings saved");
+      }
+    }
+
+    // Close the panel
+    setIsOpen(false);
+  };
+
+  // Save settings when component unmounts if there are unsaved changes
+  useEffect(() => {
+    return () => {
+      if (hasUnsavedChanges) {
+        saveSettingsToBackend();
+      }
+    };
+  }, [hasUnsavedChanges]);
+
+
+  const updateShowTimeZones = (show: boolean) => {
+    setShowTimeZones(show);
+  };
+
+  const updateShowDayNight = (show: boolean) => {
+    setShowDayNight(show);
+  };
+
+  const updateShowSunMoon = (show: boolean) => {
+    setShowSunMoon(show);
+  };
+
+  const updateShowWeather = (show: boolean) => {
+    setShowWeather(show);
+  };
+
+  const updateShowEarthquakes = (show: boolean) => {
+    setShowEarthquakes(show);
+  };
+
+  const updateShowAirTraffic = (show: boolean) => {
+    setShowAirTraffic(show);
+  };
+
+  const updateMapResolution = (value: number) => {
+    setMapResolution(value);
+  };
+
+  const updateTimeFormat = (format: string) => {
+    setTimeFormat(format);
+  };
+
   const sidebarVariants = {
     open: { x: 0, opacity: 1 },
     closed: { x: -320, opacity: 0 },
@@ -192,30 +417,43 @@ export default function MapControls({
         title: "Time Zones",
         icon: Clock,
         isChecked: showTimeZones,
-        onToggle: setShowTimeZones,
+        onToggle: updateShowTimeZones,
       },
       {
         title: "Day/Night",
         icon: Sun,
         isChecked: showDayNight,
-        onToggle: setShowDayNight,
+        onToggle: updateShowDayNight,
       },
       {
         title: "Sun & Moon",
         icon: Moon,
         isChecked: showSunMoon,
-        onToggle: setShowSunMoon,
+        onToggle: updateShowSunMoon,
       },
     ],
     [showTimeZones, showDayNight, showSunMoon]
   );
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="absolute left-0 top-0 h-full z-20">
+        <div className="bg-gray-900/95 backdrop-blur-md border-r border-gray-800/50 text-white h-full w-80 shadow-xl flex flex-col items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500 mb-4"></div>
+          <p className="text-gray-300">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isOpen) {
     return (
       <motion.div
         initial={{ x: -100, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className="absolute top-20 left-0 z-20"
+        className="absolute top-10 left-0 z-20"
       >
         <Button
           variant="secondary"
@@ -245,14 +483,20 @@ export default function MapControls({
             <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
               Map Controls
             </h2>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsOpen(false)}
-              className="text-gray-400 hover:text-white hover:bg-gray-800/50"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center space-x-2">
+              {isSaving && (
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-indigo-500 mr-2"></div>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleClosePanel}
+                className="text-gray-400 hover:text-white hover:bg-gray-800/50"
+                disabled={isSaving}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
 
           {/* Tabs */}
@@ -367,8 +611,8 @@ export default function MapControls({
               </TabsContent>
               <TabsContent value="settings" className="mt-0 h-full">
                 <div className="space-y-6">
-                  <MapStyleSelector mapStyle={mapStyle} setMapStyle={setMapStyle} />
-                  <ResolutionSlider mapResolution={mapResolution} setMapResolution={setMapResolution} />
+                  {/* <MapStyleSelector/> */}
+                  {/* <ResolutionSlider mapResolution={mapResolution} setMapResolution={setMapResolution} /> */}
                   <div className="space-y-3">
                     <h3 className="text-sm font-medium text-gray-300 flex items-center">
                       <Clock className="h-4 w-4 mr-2 text-indigo-400" />
@@ -383,20 +627,7 @@ export default function MapControls({
                       onSelect={setTimeFormat}
                     />
                   </div>
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-medium text-gray-300 flex items-center">
-                      <Thermometer className="h-4 w-4 mr-2 text-indigo-400" />
-                      Temperature Unit
-                    </h3>
-                    <ToggleButtons
-                      options={[
-                        { label: "Celsius (°C)", value: "celsius" },
-                        { label: "Fahrenheit (°F)", value: "fahrenheit" },
-                      ]}
-                      selectedOption={tempUnit}
-                      onSelect={setTempUnit}
-                    />
-                  </div>
+
                 </div>
               </TabsContent>
               <TabsContent value="info" className="mt-0 h-full">

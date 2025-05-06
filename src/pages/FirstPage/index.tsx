@@ -142,7 +142,7 @@ export default function FirstPage() {
           className="mt-8 mb-12"
         >
           <TimeDisplay
-            date={currentTime}
+            date={new Date(currentTime.getTime() + currentTime.getTimezoneOffset() * 60000)}
             className="text-[4rem] sm:text-[6rem] md:text-[8rem] lg:text-[10rem] xl:text-[12rem] font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 leading-none tracking-tight"
           />
         </motion.div>

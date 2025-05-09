@@ -29,7 +29,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../com
 import { fetchData, postData } from "../servics/apiService";
 import { toast } from "sonner";
 import { jwtDecode } from "jwt-decode";
-import { useCelestialPositions } from "../hooks/useCelestialPositions"
 
 // interface MapControlsProps {
 //   position?: string;
@@ -204,7 +203,7 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange }: MapC
   const [showEarthquakes, setShowEarthquakes] = useState(false);
   const [showAirTraffic, setShowAirTraffic] = useState(false);
 
-  const { sun, moon } = useCelestialPositions();
+
 
   // Helper function to get current user ID
   const getCurrentUserId = useCallback((): string | null => {
@@ -274,29 +273,30 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange }: MapC
       }
 
       try {
-        const response = await fetchData(`/map-settings/${userId}`);
-        if (response && response.data) {
-          const settings = response.data;
+        // const response = await fetchData(`/map-settings/${userId}`);
+        // if (response && response.data) {
+        //   const settings = response.data;
 
-          // Update all settings from backend
+        //   // Update all settings from backend
 
-          setMapResolution(settings.mapResolution || 75);
-          setTimeFormat(settings.timeFormat || "24h");
+        //   setMapResolution(settings.mapResolution || 75);
+        //   setTimeFormat(settings.timeFormat || "24h");
 
-          setShowTimeZones(settings.showTimeZones || true);
-          setShowDayNight(settings.showDayNight || true);
-          setShowSunMoon(settings.showSunMoon || true);
-          setShowWeather(settings.showWeather || false);
-          setShowEarthquakes(settings.showEarthquakes || false);
-          setShowAirTraffic(settings.showAirTraffic || false);
+        //   setShowTimeZones(settings.showTimeZones || true);
+        //   setShowDayNight(settings.showDayNight || true);
+        //   setShowSunMoon(settings.showSunMoon || true);
+        //   setShowWeather(settings.showWeather || false);
+        //   setShowEarthquakes(settings.showEarthquakes || false);
+        //   setShowAirTraffic(settings.showAirTraffic || false);
 
-          // Store last saved settings
-          setLastSavedSettings(settings);
+        //   // Store last saved settings
+        //   setLastSavedSettings(settings);
 
-          console.log("Map settings loaded from server:", settings);
-        }
+        //   console.log("Map settings loaded from server:", settings);
+        // }
       } catch (error) {
         console.error("Error fetching map settings:", error);
+        setIsLoading(false);
         // Continue with default settings
       } finally {
         setIsLoading(false);

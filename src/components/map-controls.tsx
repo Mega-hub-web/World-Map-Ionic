@@ -29,14 +29,15 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../com
 import { fetchData, postData } from "../servics/apiService";
 import { toast } from "sonner";
 import { jwtDecode } from "jwt-decode";
+import { useCelestialPositions } from "../hooks/useCelestialPositions"
 
-interface MapControlsProps {
-  position?: string;
-  mapStyle: string;
-  setMapStyle: (style: string) => void;
-  showNasaMap: boolean;
-  setShowNasaMap: (show: boolean) => void;
-}
+// interface MapControlsProps {
+//   position?: string;
+//   mapStyle: string;
+//   setMapStyle: (style: string) => void;
+//   showNasaMap: boolean;
+//   setShowNasaMap: (show: boolean) => void;
+// }
 
 
 interface MapSettings {
@@ -176,7 +177,13 @@ const ToggleButtons = ({
   </div>
 );
 
-export default function MapControls() {
+interface MapControlsProps {
+  showTimeFormat: "12h" | "24h"
+  onTimeFormatChange: (format: "12h" | "24h") => void
+}
+
+
+export default function MapControls({ showTimeFormat, onTimeFormatChange }: MapControlsProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("layers");
   const [isLoading, setIsLoading] = useState(true);
@@ -196,6 +203,8 @@ export default function MapControls() {
   const [showWeather, setShowWeather] = useState(false);
   const [showEarthquakes, setShowEarthquakes] = useState(false);
   const [showAirTraffic, setShowAirTraffic] = useState(false);
+
+  const { sun, moon } = useCelestialPositions();
 
   // Helper function to get current user ID
   const getCurrentUserId = useCallback((): string | null => {
@@ -618,14 +627,26 @@ export default function MapControls() {
                       <Clock className="h-4 w-4 mr-2 text-indigo-400" />
                       Time Format
                     </h3>
-                    <ToggleButtons
-                      options={[
-                        { label: "24-hour", value: "24h" },
-                        { label: "12-hour (AM/PM)", value: "12h" },
-                      ]}
-                      selectedOption={timeFormat}
-                      onSelect={setTimeFormat}
-                    />
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => onTimeFormatChange("24h")}
+                        className={`flex-1 py-2 px-3 rounded-md text-sm ${showTimeFormat === "24h"
+                          ? "bg-indigo-600 text-white"
+                          : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                          }`}
+                      >
+                        24-hour
+                      </button>
+                      <button
+                        onClick={() => onTimeFormatChange("12h")}
+                        className={`flex-1 py-2 px-3 rounded-md text-sm ${showTimeFormat === "12h"
+                          ? "bg-indigo-600 text-white"
+                          : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                          }`}
+                      >
+                        12-hour (AM/PM)
+                      </button>
+                    </div>
                   </div>
 
                 </div>
@@ -695,7 +716,7 @@ export default function MapControls() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white border-0"
+                      className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-whit  e border-0"
                     >
                       Upgrade to Premium
                     </Button>
@@ -703,7 +724,7 @@ export default function MapControls() {
 
                   <div className="pt-4 text-center text-xs text-gray-500">
                     <p>
-                      Version: 1.2.0
+                      Version: 1.0
                       <br />© 2025 World Time Map
                     </p>
                   </div>

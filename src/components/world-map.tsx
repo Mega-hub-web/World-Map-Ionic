@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createRoot } from "react-dom/client";
 import { MapPin, Plus, Minus, Sun, Moon, Clock, X, MapPinIcon } from "lucide-react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -19,6 +20,11 @@ import { jwtDecode } from "jwt-decode"
 import CityTimeDisplay from "../components/city-time-display"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip"
 import MapControls from "./map-controls";
+import { motion, AnimatePresence } from "framer-motion"
+import { DayNightOverlay } from './day-night-overlay';
+import { TerminatorSource } from '@vicmartini/mapbox-gl-terminator';
+import { useCelestialPositions } from "../hooks/useCelestialPositions"
+
 
 // Set your Mapbox access token
 mapboxgl.accessToken = "pk.eyJ1Ijoia3Zjb2F0ZXMiLCJhIjoiY21hNTd0bTZjMDQ0aDJyczkyeG9iZTE5OCJ9.anKjK_Ynna30II4T5t4TeQ";
@@ -61,12 +67,20 @@ const WorldMap: React.FC<WorldMapProps> = () => {
   const markersRef = useRef<{ [key: string]: mapboxgl.Marker }>({});
   const [isAddingPin, setIsAddingPin] = useState(false);
   const [tempMarker, setTempMarker] = useState<mapboxgl.Marker | null>(null);
+  const sunMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const moonMarkerRef = useRef<mapboxgl.Marker | null>(null);
+
+  const [earthquakeMarkers, setEarthquakeMarkers] = useState<mapboxgl.Marker[]>([]);
 
   // Add pin modal state
   const [showAddPinModal, setShowAddPinModal] = useState(false);
   const [newPinName, setNewPinName] = useState('');
   const [newPinLat, setNewPinLat] = useState('');
   const [newPinLng, setNewPinLng] = useState('');
+
+  const [timeFormat, setTimeFormat] = useState<"12h" | "24h">("24h")
+
+  const { sun, moon } = useCelestialPositions();
 
   // Helper function to get current user ID
   const getCurrentUserId = (): string | null => {
@@ -521,6 +535,51 @@ const WorldMap: React.FC<WorldMapProps> = () => {
               console.error("Error adding country boundaries layer:", error);
             }
           }
+          fetchAndDisplayEarthquakes();
+          // Add Sun marker
+          if (!sunMarkerRef.current) {
+            const sunEl = document.createElement("div");
+            const sunRoot = createRoot(sunEl);
+            sunRoot.render(
+              <div className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2">
+                <div className="relative">
+                  <Sun className="h-8 w-8 text-yellow-500 fill-yellow-500" />
+                  <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-yellow-500/30 animate-pulse" />
+                  <div className="absolute -top-2 -right-2 -left-2 -bottom-2 rounded-full bg-yellow-500/20" />
+                  <div className="absolute -top-4 -right-4 -left-4 -bottom-4 rounded-full bg-yellow-500/10" />
+                  <div className="absolute -top-8 -right-8 -left-8 -bottom-8 rounded-full bg-yellow-500/5 animate-pulse-glow" />
+                </div>
+              </div>
+            );
+
+            sunMarkerRef.current = new mapboxgl.Marker(sunEl)
+              .setLngLat([sun.longitude, sun.latitude])
+              .addTo(map.current!);
+          } else {
+            // Just update position
+            sunMarkerRef.current.setLngLat([sun.longitude, sun.latitude]);
+          }
+
+          // Add Moon marker
+          if (!moonMarkerRef.current) {
+            const moonEl = document.createElement("div");
+            const moonRoot = createRoot(moonEl);
+            moonRoot.render(
+              <div className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2">
+                <Moon className="h-7 w-7 text-indigo-400 fill-indigo-400" />
+                <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-indigo-400/30 animate-pulse" />
+                <div className="absolute -top-2 -right-2 -left-2 -bottom-2 rounded-full bg-indigo-400/20" />
+              </div>
+            );
+
+            moonMarkerRef.current = new mapboxgl.Marker(moonEl)
+              .setLngLat([moon.longitude, moon.latitude])
+              .addTo(map.current!);
+          } else {
+            moonMarkerRef.current.setLngLat([moon.longitude, moon.latitude]);
+          }
+
+
           // Set up click and mousemove handlers
           map.current?.on('click', (e) => {
             if (isAddingPin) {
@@ -571,6 +630,7 @@ const WorldMap: React.FC<WorldMapProps> = () => {
           // Load pins after map is fully initialized
           await refreshAllPins();
         });
+
       };
 
       // Use requestAnimationFrame to ensure DOM is ready
@@ -589,6 +649,13 @@ const WorldMap: React.FC<WorldMapProps> = () => {
       }
     };
   }, [zoom, isAddingPin]);
+
+  useEffect(() => {
+    if (map.current) {
+      sunMarkerRef.current?.setLngLat([sun.longitude, sun.latitude]);
+      moonMarkerRef.current?.setLngLat([moon.longitude, moon.latitude]);
+    }
+  }, [sun, moon]);
 
   // Update current time
   useEffect(() => {
@@ -644,14 +711,72 @@ const WorldMap: React.FC<WorldMapProps> = () => {
       resizeObserver.disconnect();
     };
   }, []);
+  const fetchAndDisplayEarthquakes = async () => {
+    if (!map.current) return;
 
+    try {
+      // Fetch earthquake data using fetchData from apiService
+      const data = await fetchData('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson');
+
+      // Clear existing earthquake markers
+      earthquakeMarkers.forEach((marker) => marker.remove());
+      setEarthquakeMarkers([]);
+
+      // Add new earthquake markers
+      const newMarkers = data.features.map((feature: any) => {
+        const { coordinates } = feature.geometry;
+        const { mag, place, time } = feature.properties;
+
+        // Create marker element
+        const el = document.createElement('div');
+        el.className = 'earthquake-marker';
+        el.style.width = `${Math.max(10, mag * 5)}px`; // Size based on magnitude
+        el.style.height = `${Math.max(10, mag * 5)}px`;
+        el.style.backgroundColor = 'rgba(255, 0, 0, 0.6)';
+        el.style.borderRadius = '50%';
+        el.style.border = '2px solid white';
+
+        // Create popup content
+        const popupContent = `
+          <div>
+            <h3 class="text-sm font-bold">Magnitude: ${mag}</h3>
+            <p class="text-xs">Location: ${place}</p>
+            <p class="text-xs">Time: ${new Date(time).toLocaleString()}</p>
+          </div>
+        `;
+
+        // Create popup
+        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(popupContent);
+
+        // Add marker to map
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat([coordinates[0], coordinates[1]])
+          .setPopup(popup)
+          .addTo(map.current!);
+
+        return marker;
+      });
+
+      setEarthquakeMarkers(newMarkers);
+    } catch (error) {
+      console.error('Error fetching earthquake data:', error);
+      toast.error('Failed to load earthquake data.');
+    }
+  };
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchAndDisplayEarthquakes();
+    }, 300000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, [earthquakeMarkers]);
   return (
     <div className="h-screen w-screen overflow-hidden">
       <div className="flex flex-col h-full w-full">
         <header className="bg-gradient-to-r from-indigo-900 to-purple-900 text-white p-2 flex items-center overflow-x-auto shadow-lg z-10">
           <div className="ml-auto flex space-x-1 overflow-x-auto">
             {headerCities.map((city) => (
-              <div key={city.name} className="flex-shrink-0 border-r border-indigo-700/30 last:border-r-0 px-4 py-1">
+              <div key={city.name} className="flex-shrink-0 border-r border-indigo-700/30 last:border-r-0 px-4 py-1 justify-items-center">
                 <div className="flex items-center mb-1 justify-center">
                   {city.name === "UTC" ? (
                     <Clock className="h-4 w-4 mr-2 text-indigo-300" />
@@ -660,7 +785,7 @@ const WorldMap: React.FC<WorldMapProps> = () => {
                   )}
                   <span className="text-gray-300 text-sm">{city.name}</span>
                 </div>
-                <CityTimeDisplay timezone={city.timezone} className="text-2xl font-bold" showSeconds={true} />
+                <CityTimeDisplay timezone={city.timezone} className="text-2xl font-bold" showSeconds={true} format={timeFormat} />
                 {city.name !== "UTC" && (
                   <div className="text-xs mt-1 text-gray-300">
                     {new Intl.DateTimeFormat("en-US", {
@@ -707,13 +832,25 @@ const WorldMap: React.FC<WorldMapProps> = () => {
             <div className="absolute bottom-8 right-8 z-20 bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-lg shadow-lg p-3">
               <div className="text-center">
                 <div className="text-xs text-gray-400">Your Current Time</div>
-                <div className="text-2xl font-bold text-white">
-                  {currentTime.toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                    hour12: false,
-                  })}
+                <div className="text-2xl font-bold text-white h-8 flex items-center justify-center">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={`time-${timeFormat}-utc`}
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 5 }}
+                      transition={{ duration: 0.2 }}
+                      className="inline-block min-w-[10ch] text-center"
+                    >
+                      {currentTime.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                        hour12: timeFormat === "12h",
+                        timeZone: "UTC",
+                      })}
+                    </motion.div>
+                  </AnimatePresence>
                 </div>
               </div>
             </div>
@@ -724,7 +861,14 @@ const WorldMap: React.FC<WorldMapProps> = () => {
               className="absolute inset-0 w-full h-full"
               style={{ cursor: isDragging ? "grabbing" : isAddingPin ? "crosshair" : "grab" }}
             ></div>
-
+            {/* Day/Night overlay */}
+            {map.current && (
+              <DayNightOverlay
+                map={map.current}
+                visible={true}
+                highContrast={true}
+              />
+            )}
             {/* Add Pin Modal */}
             <Dialog open={showAddPinModal} onOpenChange={setShowAddPinModal}>
               <DialogContent className="bg-gray-900 text-white border border-gray-800">
@@ -789,7 +933,7 @@ const WorldMap: React.FC<WorldMapProps> = () => {
               </DialogContent>
             </Dialog>
           </div>
-          <MapControls />
+          <MapControls showTimeFormat={timeFormat} onTimeFormatChange={(format) => setTimeFormat(format)} />
         </div>
       </div>
     </div>

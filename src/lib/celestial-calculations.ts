@@ -1,93 +1,80 @@
-// Simplified calculations for sun and moon positions
-// Note: These are approximations for demonstration purposes
+// celestial-calculations.ts
+"use client";
 
-export function calculateSunPosition(date: Date) {
-  // Get day of year
-  const start = new Date(date.getFullYear(), 0, 0)
-  const diff = date.getTime() - start.getTime()
-  const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24))
+import SunCalc from "suncalc";
 
-  // Calculate declination angle (simplified)
-  const declination = -23.45 * Math.cos(((2 * Math.PI) / 365) * (dayOfYear + 10))
-
-  // Calculate longitude based on time of day
-  const hours = date.getUTCHours()
-  const minutes = date.getUTCMinutes()
-  const timeDecimal = hours + minutes / 60
-  const longitude = (timeDecimal - 12) * 15
-
+export const calculateSunPosition = (date: Date) => {
+  const pos = SunCalc.getPosition(date, 0, 0);
   return {
-    latitude: declination,
-    longitude: longitude,
-  }
+    latitude: (pos.altitude / Math.PI) * 180,
+    longitude: (pos.azimuth / Math.PI) * 180,
+  };
+};
+
+function dateToJulian(date: Date) {
+  const time = date.getTime();
+  return time / 86400000 + 2440587.5;
+}
+
+export function calculateGMST(date: Date) {
+  const julianDate = dateToJulian(date);
+  const T = (julianDate - 2451545.0) / 36525;
+
+  let gmst = 6.697374558 + 0.06570982441908 * (julianDate - 2451545.0);
+  gmst +=
+    1.00273790935 *
+    (date.getUTCHours() +
+      date.getUTCMinutes() / 60 +
+      date.getUTCSeconds() / 3600);
+
+  gmst = gmst % 24;
+  if (gmst < 0) gmst += 24;
+
+  return gmst;
 }
 
 export function calculateMoonPosition(date: Date) {
-  // This is a very simplified approximation
-  // In reality, moon position calculation is complex
-
-  // Get day of year
-  const start = new Date(date.getFullYear(), 0, 0)
-  const diff = date.getTime() - start.getTime()
-  const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24))
-
-  // Calculate declination angle (simplified)
-  const declination = -18.35 * Math.cos(((2 * Math.PI) / 365) * (dayOfYear + 40))
-
-  // Calculate longitude based on time of day (offset from sun)
-  const hours = date.getUTCHours()
-  const minutes = date.getUTCMinutes()
-  const timeDecimal = hours + minutes / 60
-  // Moon rises about 50 minutes later each day
-  const moonPhaseOffset = (date.getDate() % 30) * 12 // Simplified lunar phase
-  const longitude = (timeDecimal - 12) * 15 + moonPhaseOffset
-
+  const pos = SunCalc.getMoonPosition(date, 0, 0); // Use correct lat/lng if known
   return {
-    latitude: declination,
-    longitude: (longitude % 360) - 180, // Normalize to -180 to 180
-  }
+    latitude: (pos.altitude / Math.PI) * 180,
+    longitude: (pos.azimuth / Math.PI) * 180,
+  };
 }
 
-// Calculate sunrise and sunset times for a location
-export function calculateSunriseSunset(date: Date, latitude: number, longitude: number) {
-  // Get day of year
-  const start = new Date(date.getFullYear(), 0, 0)
-  const diff = date.getTime() - start.getTime()
-  const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24))
 
-  // Calculate declination angle
-  const declination = -23.45 * Math.cos(((2 * Math.PI) / 365) * (dayOfYear + 10))
+export function calculateSunriseSunset(
+  date: Date,
+  latitude: number,
+  longitude: number
+) {
+  const start = new Date(date.getFullYear(), 0, 0);
+  const diff = date.getTime() - start.getTime();
+  const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-  // Convert to radians
-  const latRad = (latitude * Math.PI) / 180
-  const decRad = (declination * Math.PI) / 180
+  const sunPosition = calculateSunPosition(date);
+  const declination = sunPosition.latitude;
 
-  // Calculate hour angle
-  const cosHourAngle = -Math.tan(latRad) * Math.tan(decRad)
+  const latRad = (latitude * Math.PI) / 180;
+  const decRad = (declination * Math.PI) / 180;
+  const cosHourAngle = -Math.tan(latRad) * Math.tan(decRad);
 
-  // If cosHourAngle is out of range [-1, 1], there's either no sunrise/sunset or it's always day/night
   if (cosHourAngle < -1) {
-    return { sunrise: null, sunset: null, isPolarDay: true }
+    return { sunrise: null, sunset: null, isPolarDay: true };
   } else if (cosHourAngle > 1) {
-    return { sunrise: null, sunset: null, isPolarNight: true }
+    return { sunrise: null, sunset: null, isPolarNight: true };
   }
 
-  // Calculate hour angle in degrees
-  const hourAngle = (Math.acos(cosHourAngle) * 180) / Math.PI
+  const hourAngle = (Math.acos(cosHourAngle) * 180) / Math.PI;
+  const sunriseHour = 12 - hourAngle / 15 - longitude / 15;
+  const sunsetHour = 12 + hourAngle / 15 - longitude / 15;
 
-  // Calculate sunrise and sunset times (in UTC hours)
-  const sunriseHour = 12 - hourAngle / 15 - longitude / 15
-  const sunsetHour = 12 + hourAngle / 15 - longitude / 15
+  const sunriseDate = new Date(date);
+  sunriseDate.setUTCHours(Math.floor(sunriseHour));
+  sunriseDate.setUTCMinutes(Math.round((sunriseHour % 1) * 60));
 
-  // Convert to local time
-  const sunriseDate = new Date(date)
-  sunriseDate.setUTCHours(Math.floor(sunriseHour))
-  sunriseDate.setUTCMinutes(Math.round((sunriseHour % 1) * 60))
+  const sunsetDate = new Date(date);
+  sunsetDate.setUTCHours(Math.floor(sunsetHour));
+  sunsetDate.setUTCMinutes(Math.round((sunsetHour % 1) * 60));
 
-  const sunsetDate = new Date(date)
-  sunsetDate.setUTCHours(Math.floor(sunsetHour))
-  sunsetDate.setUTCMinutes(Math.round((sunsetHour % 1) * 60))
-
-  return { sunrise: sunriseDate, sunset: sunsetDate }
+  return { sunrise: sunriseDate, sunset: sunsetDate };
 }
-

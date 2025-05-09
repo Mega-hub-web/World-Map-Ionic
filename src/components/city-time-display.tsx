@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 
 interface CityTimeDisplayProps {
   timezone: string
@@ -42,6 +43,21 @@ export default function CityTimeDisplay({
     return () => clearInterval(interval)
   }, [timezone, showSeconds, format])
 
-  return <div className={className}>{time}</div>
+  return (
+    <div className={`${className} relative min-w-[5ch] flex justify-center`}>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={`time-${format}`}
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 10 }}
+          transition={{ duration: 0.2 }}
+          className="text-center"
+        >
+          {time}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  )
 }
 

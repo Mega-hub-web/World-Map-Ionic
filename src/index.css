@@ -240,3 +240,18 @@
   border-bottom-color: rgba(35, 35, 35, 0.95) !important;
   border-top-color: transparent !important;
 }
+.marker-sun {
+  background: url('/sun.png') no-repeat center;
+  background-size: contain;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.marker-moon {
+  background: url('/moon.png') no-repeat center;
+  background-size: contain;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}

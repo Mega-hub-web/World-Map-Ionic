@@ -657,8 +657,8 @@ const WorldMap: React.FC<WorldMapProps> = () => {
     console.log("Moon position:", moon);
 
     if (map.current) {
-      sunMarkerRef.current?.setLngLat([moon.longitude, moon.latitude]);
-      moonMarkerRef.current?.setLngLat([sun.longitude, sun.latitude]);
+      sunMarkerRef.current?.setLngLat([sun.longitude, sun.latitude]);
+      moonMarkerRef.current?.setLngLat([moon.longitude, moon.latitude]);
     }
   }, [sun, moon]);
 

@@ -1,80 +1,105 @@
-// celestial-calculations.ts
 "use client";
 
-import SunCalc from "suncalc";
+import { Observer, Equator, Body, Horizon } from "astronomy-engine";
 
-export const calculateSunPosition = (date: Date) => {
-  const pos = SunCalc.getPosition(date, 0, 0);
-  return {
-    latitude: (pos.altitude / Math.PI) * 180,
-    longitude: (pos.azimuth / Math.PI) * 180,
-  };
-};
+// --- Utilities ---
+function radToDeg(rad: number) {
+  return (rad * 180) / Math.PI;
+}
 
+// --- GMST Calculation ---
 function dateToJulian(date: Date) {
-  const time = date.getTime();
-  return time / 86400000 + 2440587.5;
+  return date.getTime() / 86400000 + 2440587.5;
 }
 
 export function calculateGMST(date: Date) {
-  const julianDate = dateToJulian(date);
-  const T = (julianDate - 2451545.0) / 36525;
-
-  let gmst = 6.697374558 + 0.06570982441908 * (julianDate - 2451545.0);
-  gmst +=
-    1.00273790935 *
-    (date.getUTCHours() +
-      date.getUTCMinutes() / 60 +
-      date.getUTCSeconds() / 3600);
-
-  gmst = gmst % 24;
-  if (gmst < 0) gmst += 24;
-
-  return gmst;
+  const jd = dateToJulian(date);
+  const T = (jd - 2451545.0) / 36525;
+  let GMST =
+    280.46061837 +
+    360.98564736629 * (jd - 2451545.0) +
+    0.000387933 * T * T -
+    (T * T * T) / 38710000;
+  return ((GMST % 360) + 360) % 360;
 }
 
-export function calculateMoonPosition(date: Date) {
-  const pos = SunCalc.getMoonPosition(date, 0, 0); // Use correct lat/lng if known
+// --- Accurate Subsolar Point ---
+export function getSubsolarPoint(date: Date) {
+  const observer = new Observer(0, 0, 0); // Observer at Earth's center
+  const sunPos = Equator(Body.Sun, date, observer, true, true); // Get Sun's equatorial position
   return {
-    latitude: (pos.altitude / Math.PI) * 180,
-    longitude: (pos.azimuth / Math.PI) * 180,
+    latitude: sunPos.dec, // Declination (latitude)
+    longitude: -sunPos.ra * 15, // Right Ascension converted to longitude
   };
 }
 
+// --- Accurate Sublunar Point ---
+export function getSublunarPoint(date: Date) {
+  const observer = new Observer(0, 0, 0); // Observer at Earth's center
+  const moonPos = Equator(Body.Moon, date, observer, true, true); // Get Moon's equatorial position
+  const raDeg = moonPos.ra * 15;
 
-export function calculateSunriseSunset(
+  // Convert GMST to degrees
+  const gmst = calculateGMST(date);
+
+  // Subtract RA from GMST to get geographic longitude
+  let lon = (gmst - raDeg + 360) % 360;
+  if (lon > 180) lon -= 360;
+
+  return {
+    latitude: moonPos.dec,
+    longitude: lon,
+  };
+}
+
+// --- Local Sun Position ---
+export function calculateSunPosition(
   date: Date,
   latitude: number,
   longitude: number
 ) {
-  const start = new Date(date.getFullYear(), 0, 0);
-  const diff = date.getTime() - start.getTime();
-  const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const observer = new Observer(latitude, longitude, 0); // Observer at the specified location
 
-  const sunPosition = calculateSunPosition(date);
-  const declination = sunPosition.latitude;
+  // Get Sun's equatorial position
+  const sunEquatorial = Equator(Body.Sun, date, observer, true, true);
 
-  const latRad = (latitude * Math.PI) / 180;
-  const decRad = (declination * Math.PI) / 180;
-  const cosHourAngle = -Math.tan(latRad) * Math.tan(decRad);
+  // Convert equatorial coordinates to horizon coordinates
+  const sunHorizon = Horizon(
+    date,
+    observer,
+    sunEquatorial.ra, // Right ascension in hours
+    sunEquatorial.dec, // Declination in degrees
+    "true" // Include atmospheric refraction
+  );
 
-  if (cosHourAngle < -1) {
-    return { sunrise: null, sunset: null, isPolarDay: true };
-  } else if (cosHourAngle > 1) {
-    return { sunrise: null, sunset: null, isPolarNight: true };
-  }
+  return {
+    altitude: radToDeg(sunHorizon.altitude), // Altitude above the horizon
+    azimuth: radToDeg(sunHorizon.azimuth), // Azimuth angle
+  };
+}
 
-  const hourAngle = (Math.acos(cosHourAngle) * 180) / Math.PI;
-  const sunriseHour = 12 - hourAngle / 15 - longitude / 15;
-  const sunsetHour = 12 + hourAngle / 15 - longitude / 15;
+// --- Local Moon Position ---
+export function calculateMoonPosition(
+  date: Date,
+  latitude: number,
+  longitude: number
+) {
+  const observer = new Observer(latitude, longitude, 0); // Observer at the given latitude/longitude
 
-  const sunriseDate = new Date(date);
-  sunriseDate.setUTCHours(Math.floor(sunriseHour));
-  sunriseDate.setUTCMinutes(Math.round((sunriseHour % 1) * 60));
+  // Get Moon's equatorial position
+  const moonEquatorial = Equator(Body.Moon, date, observer, true, true);
 
-  const sunsetDate = new Date(date);
-  sunsetDate.setUTCHours(Math.floor(sunsetHour));
-  sunsetDate.setUTCMinutes(Math.round((sunsetHour % 1) * 60));
+  // Convert equatorial coordinates to horizon coordinates
+  const moonHorizon = Horizon(
+    date,
+    observer,
+    moonEquatorial.ra, // Right ascension in hours
+    moonEquatorial.dec, // Declination in degrees
+    "true" // Include atmospheric refraction
+  );
 
-  return { sunrise: sunriseDate, sunset: sunsetDate };
+  return {
+    altitude: radToDeg(moonHorizon.altitude), // Altitude above the horizon
+    azimuth: radToDeg(moonHorizon.azimuth), // Azimuth angle
+  };
 }

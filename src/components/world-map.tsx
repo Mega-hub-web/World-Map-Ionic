@@ -553,11 +553,12 @@ const WorldMap: React.FC<WorldMapProps> = () => {
             );
 
             sunMarkerRef.current = new mapboxgl.Marker(sunEl)
-              .setLngLat([sun.longitude, sun.latitude])
+              .setLngLat([moon.longitude, moon.latitude])
+
               .addTo(map.current!);
           } else {
             // Just update position
-            sunMarkerRef.current.setLngLat([sun.longitude, sun.latitude]);
+            sunMarkerRef.current.setLngLat([moon.longitude, moon.latitude])
           }
 
           // Add Moon marker
@@ -573,10 +574,11 @@ const WorldMap: React.FC<WorldMapProps> = () => {
             );
 
             moonMarkerRef.current = new mapboxgl.Marker(moonEl)
-              .setLngLat([moon.longitude, moon.latitude])
+
+              .setLngLat([sun.longitude, sun.latitude])
               .addTo(map.current!);
           } else {
-            moonMarkerRef.current.setLngLat([moon.longitude, moon.latitude]);
+            moonMarkerRef.current.setLngLat([sun.longitude, sun.latitude])
           }
 
 
@@ -651,9 +653,12 @@ const WorldMap: React.FC<WorldMapProps> = () => {
   }, [zoom, isAddingPin]);
 
   useEffect(() => {
+    console.log("Sun position:", sun);
+    console.log("Moon position:", moon);
+
     if (map.current) {
-      sunMarkerRef.current?.setLngLat([sun.longitude, sun.latitude]);
-      moonMarkerRef.current?.setLngLat([moon.longitude, moon.latitude]);
+      sunMarkerRef.current?.setLngLat([moon.longitude, moon.latitude]);
+      moonMarkerRef.current?.setLngLat([sun.longitude, sun.latitude]);
     }
   }, [sun, moon]);
 

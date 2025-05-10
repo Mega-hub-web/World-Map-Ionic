@@ -17,19 +17,34 @@ export const DayNightOverlay: React.FC<Props> = ({ map, visible, highContrast })
     const fetchTileImageBitmap = async (zxy: string): Promise<ImageBitmap> => {
       const accessToken = mapboxgl.accessToken;
       const url = `https://api.mapbox.com/v4/rreusser.black-marble/${zxy}.webp?access_token=${accessToken}`;
-      const response = await fetch(url);
-      const blob = await response.blob();
-      return await createImageBitmap(blob);
+
+      try {
+        const response = await fetch(url, { cache: "force-cache" });
+        if (!response.ok) throw new Error(`Tile failed: ${zxy}`);
+
+        const blob = await response.blob();
+        return await createImageBitmap(blob);
+      } catch (err) {
+        console.warn(`Fallback tile used for: ${zxy}`, err);
+
+        // Transparent fallback tile
+        const canvas = document.createElement("canvas");
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext("2d");
+        ctx?.clearRect(0, 0, 256, 256);
+        return await createImageBitmap(canvas);
+      }
     };
 
-    // Initialize source only once
     const terminatorSource = new TerminatorSource({
       date: Date.now(),
       fadeRange: highContrast ? [1, -1] : [2, -2],
       tileSize: 256,
-      is2x: window.devicePixelRatio > 1,
+      is2x: false, // Force standard resolution for universal compatibility
       fetchTileImageBitmap,
     });
+
     sourceRef.current = terminatorSource;
 
     if (!map.getSource(sourceId)) {
@@ -43,21 +58,19 @@ export const DayNightOverlay: React.FC<Props> = ({ map, visible, highContrast })
         source: sourceId,
         maxzoom: 8,
         paint: {
-          "raster-opacity": visible ? 1 : 0.6,
+          "raster-opacity": visible ? 0.9 : 0.8,
         },
       });
     }
 
-    // Update every 5 seconds (feel free to set to 1 second)
     const interval = setInterval(() => {
       if (sourceRef.current) {
         sourceRef.current.date = Date.now();
-        // Optionally force re-render depending on lib support
         if (typeof (sourceRef.current as any).requestRender === "function") {
           (sourceRef.current as any).requestRender();
         }
       }
-    }, 5000); // or 1000 for true real-time
+    }, 5000);
 
     return () => {
       clearInterval(interval);

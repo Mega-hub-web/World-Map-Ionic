@@ -712,7 +712,7 @@ const WorldMap: React.FC<WorldMapProps> = () => {
   }, []);
 
   const fetchAndDisplayEarthquakes = async () => {
-    if (!map.current) return; // Only fetch if toggle is ON
+    if (!map.current || !showEarthquakes) return; // Only fetch if toggle is ON
 
     try {
       console.log("EarthQuake Data");
@@ -750,14 +750,14 @@ const WorldMap: React.FC<WorldMapProps> = () => {
         const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(popupContent);
 
         // Add marker to map
-        if (showEarthquakes) {
-          const marker = new mapboxgl.Marker(el)
-            .setLngLat([coordinates[0], coordinates[1]])
-            .setPopup(popup)
-            .addTo(map.current!);
+        // if (showEarthquakes) {
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat([coordinates[0], coordinates[1]])
+          .setPopup(popup)
+          .addTo(map.current!);
 
-          return marker;
-        }
+        return marker;
+
 
       });
 
@@ -836,13 +836,23 @@ const WorldMap: React.FC<WorldMapProps> = () => {
 
     return () => cancelAnimationFrame(animationFrameId);
   }, [showSunAndMoon, sun, moon]);
+
+
   useEffect(() => {
     if (showEarthquakes) {
       fetchAndDisplayEarthquakes(); // Fetch data when toggle is ON
     } else {
       // Remove earthquake markers when toggle is OFF
-      earthquakeMarkers.forEach((marker) => marker.remove());
-      setEarthquakeMarkers([]);
+      earthquakeMarkers.forEach((marker) => {
+        if (marker) {
+          try {
+            marker.remove();
+          } catch (error) {
+            console.warn("Error removing marker:", error);
+          }
+        }
+      });
+      setEarthquakeMarkers([]); // Clear the array
     }
   }, [showEarthquakes]); // Re-run when toggle state changes
   return (

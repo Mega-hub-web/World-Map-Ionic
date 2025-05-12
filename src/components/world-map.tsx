@@ -712,9 +712,10 @@ const WorldMap: React.FC<WorldMapProps> = () => {
   }, []);
 
   const fetchAndDisplayEarthquakes = async () => {
-    if (!map.current || !showEarthquakes) return; // Only fetch if toggle is ON
+    if (!map.current) return; // Only fetch if toggle is ON
 
     try {
+      console.log("EarthQuake Data");
       // Fetch earthquake data using fetchData from apiService
       const data = await fetchData('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson');
 
@@ -749,12 +750,15 @@ const WorldMap: React.FC<WorldMapProps> = () => {
         const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(popupContent);
 
         // Add marker to map
-        const marker = new mapboxgl.Marker(el)
-          .setLngLat([coordinates[0], coordinates[1]])
-          .setPopup(popup)
-          .addTo(map.current!);
+        if (showEarthquakes) {
+          const marker = new mapboxgl.Marker(el)
+            .setLngLat([coordinates[0], coordinates[1]])
+            .setPopup(popup)
+            .addTo(map.current!);
 
-        return marker;
+          return marker;
+        }
+
       });
 
       setEarthquakeMarkers(newMarkers);
@@ -832,7 +836,15 @@ const WorldMap: React.FC<WorldMapProps> = () => {
 
     return () => cancelAnimationFrame(animationFrameId);
   }, [showSunAndMoon, sun, moon]);
-
+  useEffect(() => {
+    if (showEarthquakes) {
+      fetchAndDisplayEarthquakes(); // Fetch data when toggle is ON
+    } else {
+      // Remove earthquake markers when toggle is OFF
+      earthquakeMarkers.forEach((marker) => marker.remove());
+      setEarthquakeMarkers([]);
+    }
+  }, [showEarthquakes]); // Re-run when toggle state changes
   return (
     <div className="h-screen w-screen overflow-hidden">
       <div className="flex flex-col h-full w-full">
@@ -1004,7 +1016,7 @@ const WorldMap: React.FC<WorldMapProps> = () => {
             showSunAndMoonPosition={showSunAndMoon}
             showDayNightOverlay={showDayNightOverlay}
             setShowDayNightOverlay={(show) => setShowDayNightOverlay(show)}
-            showEarthquakes={showEarthquakes}
+            showEarthQuakesData={showEarthquakes}
             onToggleEarthquakes={(show) => setShowEarthquakes(show)}
           />
         </div>

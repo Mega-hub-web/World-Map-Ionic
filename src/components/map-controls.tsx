@@ -183,10 +183,10 @@ interface MapControlsProps {
   showSunAndMoonPosition: boolean;
   showDayNightOverlay: boolean;
   setShowDayNightOverlay: (show: boolean) => void;
-  showEarthquakes: boolean;
+  showEarthQuakesData: boolean;
   onToggleEarthquakes: (show: boolean) => void;
 }
-export default function MapControls({ showTimeFormat, onTimeFormatChange, showSunAndMoonPosition, onToggleSunAndMoon, showDayNightOverlay, setShowDayNightOverlay }: MapControlsProps) {
+export default function MapControls({ showTimeFormat, onTimeFormatChange, showSunAndMoonPosition, onToggleSunAndMoon, showDayNightOverlay, setShowDayNightOverlay, showEarthQuakesData, onToggleEarthquakes }: MapControlsProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("layers");
   const [isLoading, setIsLoading] = useState(true);
@@ -403,7 +403,8 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange, showSu
   };
 
   const updateShowEarthquakes = (show: boolean) => {
-    setShowEarthquakes(show);
+    console.log("EarthQuakes Data on Map Control", show)
+    onToggleEarthquakes(show)
   };
 
   const updateShowAirTraffic = (show: boolean) => {
@@ -583,8 +584,8 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange, showSu
                         </div>
                         <div className="flex items-center">
                           <Switch
-                            checked={showEarthquakes}
-                            onCheckedChange={setShowEarthquakes}
+                            checked={showEarthQuakesData}
+                            onCheckedChange={updateShowEarthquakes}
                             className="data-[state=checked]:bg-indigo-600"
                           />
                         </div>

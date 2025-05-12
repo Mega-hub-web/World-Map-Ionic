@@ -79,6 +79,11 @@ const WorldMap: React.FC<WorldMapProps> = () => {
   const [newPinLng, setNewPinLng] = useState('');
 
   const [timeFormat, setTimeFormat] = useState<"12h" | "24h">("24h")
+  const [overlayUpdateTrigger, setOverlayUpdateTrigger] = useState(0);
+  const [showSunAndMoon, setShowSunAndMoon] = useState(false);
+  const [showDayNightOverlay, setShowDayNightOverlay] = useState(false);
+  const [showEarthquakes, setShowEarthquakes] = useState(false); // Toggle state for earthquake markers
+
 
   const { sun, moon } = useCelestialPositions();
 
@@ -244,26 +249,20 @@ const WorldMap: React.FC<WorldMapProps> = () => {
     el.style.cursor = 'pointer';
     el.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
 
-    // Create unique ID for time display
-    const timeDisplayId = `time-${pin.id}`;
-    const deleteButtonId = `delete-${pin.id}`;
+    // Create unique IDs for popup content
+    const locationNameId = `location-name-${pin.id}`;
+    const sunriseTimeId = `sunrise-time-${pin.id}`;
+    const sunsetTimeId = `sunset-time-${pin.id}`;
 
-    // Create HTML content with pin info and delete button
+    // Create HTML content for the popup
     const popupContent = `
       <div class="p-3 min-w-[200px]">
-        <h3 class="text-sm font-bold text-white">${pin.name}</h3>
-        <div class="mt-1 text-lg font-bold text-indigo-300 time-display" id="${timeDisplayId}">
-          Loading time...
+        <h3 class="text-sm font-bold text-white" id="${locationNameId}">Loading location...</h3>
+        <div class="mt-1 text-sm text-indigo-300">
+          <p>Sunrise: <span id="${sunriseTimeId}">Loading...</span></p>
+          <p>Sunset: <span id="${sunsetTimeId}">Loading...</span></p>
+        </div>
       </div>
-      <p class="text-xs text-gray-400 mt-1">
-        Lat: ${pin.lat}, Lng: ${pin.lng}
-      </p>
-      <div class="mt-3 pt-2 border-t border-gray-700">
-        <button id="${deleteButtonId}" class="text-xs text-red-400 hover:text-red-300 py-1 px-2 bg-gray-800/50 rounded w-full text-center">
-          Delete Pin
-        </button>
-      </div>
-    </div>
     `;
 
     // Create popup
@@ -271,10 +270,8 @@ const WorldMap: React.FC<WorldMapProps> = () => {
       offset: 25,
       closeButton: false,
       className: 'custom-popup',
-      maxWidth: '250px'
+      maxWidth: '250px',
     }).setHTML(popupContent);
-
-
 
     // Add marker to map
     const marker = new mapboxgl.Marker(el)
@@ -285,73 +282,63 @@ const WorldMap: React.FC<WorldMapProps> = () => {
     // Store marker reference
     markersRef.current[pin.id] = marker;
 
-    // Add event listeners when popup is opened
-    marker.getElement().addEventListener('click', (e) => {
-      console.log("Marker Clicked")
+    // Fetch location name and sunrise/sunset times when the popup is opened
+    marker.getElement().addEventListener('click', async () => {
       if (!marker.getPopup()?.isOpen()) {
-
         marker.togglePopup();
 
-        // Set up time display
-        const timeElement = document.getElementById(timeDisplayId);
-        if (timeElement) {
-          const timezone = getTimezoneFromCoordinates(pin.lat, pin.lng);
-          updateTimeDisplay(timeElement, timezone);
+        try {
+          // Fetch location name using reverse geocoding
+          const locationNameElement = document.getElementById(locationNameId);
+          const locationName = await fetchLocationName(pin.lat, pin.lng);
+          if (locationNameElement) {
+            locationNameElement.textContent = locationName || "Unknown Location";
+          }
 
-          // Set up interval to update time every second
-          const intervalId = setInterval(() => {
-            updateTimeDisplay(timeElement, timezone);
-          }, 1000);
-
-          // Clear interval when popup closes
-          popup.once('close', () => {
-            clearInterval(intervalId);
-          });
-        }
-
-        // Set up delete button
-        const deleteButton = document.getElementById(deleteButtonId);
-        if (deleteButton) {
-          deleteButton.addEventListener('click', async (e) => {
-            e.stopPropagation();
-
-            try {
-              // Delete pin from server
-              const success = await deletePinFromServer(getCurrentUserId(), pin.id);
-
-              if (success) {
-                // Remove marker from map
-                marker.getPopup()?.remove();
-
-                marker.remove();
-                // Remove from state
-                setUserLocations(prev => prev.filter(loc => loc.id !== pin.id));
-
-                // Remove from markers ref
-                delete markersRef.current[pin.id];
-
-                console.log("Pin deleted successfully");
-
-                toast.success("Marker deleted successfully");
-
-                refreshAllPins();
-
-              } else {
-                console.error("Failed to delete pin from server");
-                toast.error("Failed to delete location");
-              }
-            } catch (error) {
-              console.error("Error deleting pin:", error);
-              toast.error("Error deleting location");
-            }
-          });
+          // Fetch sunrise and sunset times
+          const sunriseElement = document.getElementById(sunriseTimeId);
+          const sunsetElement = document.getElementById(sunsetTimeId);
+          const { sunrise, sunset } = await fetchSunriseSunset(pin.lat, pin.lng);
+          if (sunriseElement) sunriseElement.textContent = sunrise || "Unavailable";
+          if (sunsetElement) sunsetElement.textContent = sunset || "Unavailable";
+        } catch (error) {
+          console.error("Error fetching location or sunrise/sunset times:", error);
         }
       }
     });
+
     console.log("Marker created and added to map");
     return marker;
   };
-
+  const fetchLocationName = async (lat: number, lng: number): Promise<string | null> => {
+    try {
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}`;
+      const data = await fetchData(url); // Use fetchData instead of fetch
+      if (data.features && data.features.length > 0) {
+        return data.features[0].place_name; // Return the first result
+      }
+      return null;
+    } catch (error) {
+      console.error("Error fetching location name:", error);
+      return null;
+    }
+  };
+  const fetchSunriseSunset = async (lat: number, lng: number): Promise<{ sunrise: string; sunset: string }> => {
+    try {
+      const url = `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lng}&formatted=0`;
+      const data = await fetchData(url); // Use fetchData instead of fetch
+      console.log(data)
+      if (data.status === "OK") {
+        const sunrise = new Date(data.results.sunrise).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const sunset = new Date(data.results.sunset).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return { sunrise, sunset };
+      }
+      return { sunrise: "Unavailable", sunset: "Unavailable" };
+    } catch (error) {
+      console.error("Error fetching sunrise/sunset times:", error);
+      return { sunrise: "Unavailable", sunset: "Unavailable" };
+    }
+  };
   // Function to refresh all pins
   const refreshAllPins = async () => {
     if (!map.current) {
@@ -537,49 +524,49 @@ const WorldMap: React.FC<WorldMapProps> = () => {
           }
           fetchAndDisplayEarthquakes();
           // Add Sun marker
-          if (!sunMarkerRef.current) {
-            const sunEl = document.createElement("div");
-            const sunRoot = createRoot(sunEl);
-            sunRoot.render(
-              <div className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2">
-                <div className="relative">
-                  <Sun className="h-8 w-8 text-yellow-500 fill-yellow-500" />
-                  <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-yellow-500/30 animate-pulse" />
-                  <div className="absolute -top-2 -right-2 -left-2 -bottom-2 rounded-full bg-yellow-500/20" />
-                  <div className="absolute -top-4 -right-4 -left-4 -bottom-4 rounded-full bg-yellow-500/10" />
-                  <div className="absolute -top-8 -right-8 -left-8 -bottom-8 rounded-full bg-yellow-500/5 animate-pulse-glow" />
-                </div>
-              </div>
-            );
+          // if (!sunMarkerRef.current) {
+          //   const sunEl = document.createElement("div");
+          //   const sunRoot = createRoot(sunEl);
+          //   sunRoot.render(
+          //     <div className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2">
+          //       <div className="relative">
+          //         <Sun className="h-8 w-8 text-yellow-500 fill-yellow-500" />
+          //         <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-yellow-500/30 animate-pulse" />
+          //         <div className="absolute -top-2 -right-2 -left-2 -bottom-2 rounded-full bg-yellow-500/20" />
+          //         <div className="absolute -top-4 -right-4 -left-4 -bottom-4 rounded-full bg-yellow-500/10" />
+          //         <div className="absolute -top-8 -right-8 -left-8 -bottom-8 rounded-full bg-yellow-500/5 animate-pulse-glow" />
+          //       </div>
+          //     </div>
+          //   );
 
-            sunMarkerRef.current = new mapboxgl.Marker(sunEl)
-              .setLngLat([moon.longitude, moon.latitude])
+          //   sunMarkerRef.current = new mapboxgl.Marker(sunEl)
+          //     .setLngLat([moon.longitude, moon.latitude])
 
-              .addTo(map.current!);
-          } else {
-            // Just update position
-            sunMarkerRef.current.setLngLat([moon.longitude, moon.latitude])
-          }
+          //     .addTo(map.current!);
+          // } else {
+          //   // Just update position
+          //   sunMarkerRef.current.setLngLat([moon.longitude, moon.latitude])
+          // }
 
-          // Add Moon marker
-          if (!moonMarkerRef.current) {
-            const moonEl = document.createElement("div");
-            const moonRoot = createRoot(moonEl);
-            moonRoot.render(
-              <div className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2">
-                <Moon className="h-7 w-7 text-indigo-400 fill-indigo-400" />
-                <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-indigo-400/30 animate-pulse" />
-                <div className="absolute -top-2 -right-2 -left-2 -bottom-2 rounded-full bg-indigo-400/20" />
-              </div>
-            );
+          // // Add Moon marker
+          // if (!moonMarkerRef.current) {
+          //   const moonEl = document.createElement("div");
+          //   const moonRoot = createRoot(moonEl);
+          //   moonRoot.render(
+          //     <div className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2">
+          //       <Moon className="h-7 w-7 text-indigo-400 fill-indigo-400" />
+          //       <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-indigo-400/30 animate-pulse" />
+          //       <div className="absolute -top-2 -right-2 -left-2 -bottom-2 rounded-full bg-indigo-400/20" />
+          //     </div>
+          //   );
 
-            moonMarkerRef.current = new mapboxgl.Marker(moonEl)
+          //   moonMarkerRef.current = new mapboxgl.Marker(moonEl)
 
-              .setLngLat([sun.longitude, sun.latitude])
-              .addTo(map.current!);
-          } else {
-            moonMarkerRef.current.setLngLat([sun.longitude, sun.latitude])
-          }
+          //     .setLngLat([sun.longitude, sun.latitude])
+          //     .addTo(map.current!);
+          // } else {
+          //   moonMarkerRef.current.setLngLat([sun.longitude, sun.latitude])
+          // }
 
 
           // Set up click and mousemove handlers
@@ -670,7 +657,14 @@ const WorldMap: React.FC<WorldMapProps> = () => {
 
     return () => clearInterval(timer);
   }, []);
+  // // Update the overlay periodically
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     setOverlayUpdateTrigger((prev) => prev + 1); // Increment to trigger re-render
+  //   }, 60000); // Update every 60 seconds
 
+  //   return () => clearInterval(interval); // Cleanup on unmount
+  // }, []);
   // Add custom CSS for markers
   useEffect(() => {
     const style = document.createElement('style');
@@ -716,8 +710,9 @@ const WorldMap: React.FC<WorldMapProps> = () => {
       resizeObserver.disconnect();
     };
   }, []);
+
   const fetchAndDisplayEarthquakes = async () => {
-    if (!map.current) return;
+    if (!map.current || !showEarthquakes) return; // Only fetch if toggle is ON
 
     try {
       // Fetch earthquake data using fetchData from apiService
@@ -775,6 +770,69 @@ const WorldMap: React.FC<WorldMapProps> = () => {
 
     return () => clearInterval(interval);
   }, [earthquakeMarkers]);
+
+  useEffect(() => {
+    if (!map.current) return;
+
+    // Use requestAnimationFrame to defer heavy operations
+    const handleToggle = () => {
+      if (showSunAndMoon) {
+        // Add or update Sun marker
+        if (!sunMarkerRef.current) {
+          const sunEl = document.createElement("div");
+          const sunRoot = createRoot(sunEl);
+          sunRoot.render(
+            <div className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2">
+              <div className="relative">
+                <Sun className="h-8 w-8 text-yellow-500 fill-yellow-500" />
+                <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-yellow-500/30 animate-pulse" />
+                <div className="absolute -top-2 -right-2 -left-2 -bottom-2 rounded-full bg-yellow-500/20" />
+                <div className="absolute -top-4 -right-4 -left-4 -bottom-4 rounded-full bg-yellow-500/10" />
+                <div className="absolute -top-8 -right-8 -left-8 -bottom-8 rounded-full bg-yellow-500/5 animate-pulse-glow" />
+              </div>
+            </div>
+          );
+
+          sunMarkerRef.current = new mapboxgl.Marker(sunEl)
+            .setLngLat([sun.longitude, sun.latitude])
+            .addTo(map.current!);
+        } else {
+          sunMarkerRef.current.setLngLat([sun.longitude, sun.latitude]);
+        }
+
+        // Add or update Moon marker
+        if (!moonMarkerRef.current) {
+          const moonEl = document.createElement("div");
+          const moonRoot = createRoot(moonEl);
+          moonRoot.render(
+            <div className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2">
+              <Moon className="h-7 w-7 text-indigo-400 fill-indigo-400" />
+              <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-indigo-400/30 animate-pulse" />
+              <div className="absolute -top-2 -right-2 -left-2 -bottom-2 rounded-full bg-indigo-400/20" />
+            </div>
+          );
+
+          moonMarkerRef.current = new mapboxgl.Marker(moonEl)
+            .setLngLat([moon.longitude, moon.latitude])
+            .addTo(map.current!);
+        } else {
+          moonMarkerRef.current.setLngLat([moon.longitude, moon.latitude]);
+        }
+      } else {
+        // Remove markers if toggle is off
+        sunMarkerRef.current?.remove();
+        moonMarkerRef.current?.remove();
+        sunMarkerRef.current = null;
+        moonMarkerRef.current = null;
+      }
+    };
+
+    // Use requestAnimationFrame for smoother updates
+    const animationFrameId = requestAnimationFrame(handleToggle);
+
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [showSunAndMoon, sun, moon]);
+
   return (
     <div className="h-screen w-screen overflow-hidden">
       <div className="flex flex-col h-full w-full">
@@ -867,11 +925,12 @@ const WorldMap: React.FC<WorldMapProps> = () => {
               style={{ cursor: isDragging ? "grabbing" : isAddingPin ? "crosshair" : "grab" }}
             ></div>
             {/* Day/Night overlay */}
-            {map.current && (
+            {showDayNightOverlay && map.current && (
               <DayNightOverlay
                 map={map.current}
                 visible={true}
                 highContrast={true}
+              // key={overlayUpdateTrigger}
               />
             )}
             {/* Add Pin Modal */}
@@ -938,7 +997,16 @@ const WorldMap: React.FC<WorldMapProps> = () => {
               </DialogContent>
             </Dialog>
           </div>
-          <MapControls showTimeFormat={timeFormat} onTimeFormatChange={(format) => setTimeFormat(format)} />
+          <MapControls
+            showTimeFormat={timeFormat}
+            onToggleSunAndMoon={(show) => { setShowSunAndMoon(show) }}
+            onTimeFormatChange={(format) => setTimeFormat(format)}
+            showSunAndMoonPosition={showSunAndMoon}
+            showDayNightOverlay={showDayNightOverlay}
+            setShowDayNightOverlay={(show) => setShowDayNightOverlay(show)}
+            showEarthquakes={showEarthquakes}
+            onToggleEarthquakes={(show) => setShowEarthquakes(show)}
+          />
         </div>
       </div>
     </div>

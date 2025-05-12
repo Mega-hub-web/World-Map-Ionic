@@ -12,8 +12,14 @@ export const DayNightOverlay: React.FC<Props> = ({ map, visible, highContrast })
   const sourceRef = useRef<TerminatorSource | null>(null);
   const sourceId = "terminator-source";
   const layerId = "terminator-layer";
+  const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
+    if (!map) {
+      console.error("Map instance is not available.");
+      return;
+    }
+
     const fetchTileImageBitmap = async (zxy: string): Promise<ImageBitmap> => {
       const accessToken = mapboxgl.accessToken;
       const url = `https://api.mapbox.com/v4/rreusser.black-marble/${zxy}.webp?access_token=${accessToken}`;
@@ -37,20 +43,23 @@ export const DayNightOverlay: React.FC<Props> = ({ map, visible, highContrast })
       }
     };
 
+    // Initialize the TerminatorSource
     const terminatorSource = new TerminatorSource({
       date: Date.now(),
       fadeRange: highContrast ? [1, -1] : [2, -2],
       tileSize: 256,
-      is2x: false, // Force standard resolution for universal compatibility
+      is2x: false,
       fetchTileImageBitmap,
     });
 
     sourceRef.current = terminatorSource;
 
+    // Add the source to the map
     if (!map.getSource(sourceId)) {
       map.addSource(sourceId, terminatorSource as any);
     }
 
+    // Add the layer to the map
     if (!map.getLayer(layerId)) {
       map.addLayer({
         id: layerId,
@@ -63,19 +72,33 @@ export const DayNightOverlay: React.FC<Props> = ({ map, visible, highContrast })
       });
     }
 
-    const interval = setInterval(() => {
+    // Update the source using requestAnimationFrame
+    const updateSource = () => {
       if (sourceRef.current) {
         sourceRef.current.date = Date.now();
         if (typeof (sourceRef.current as any).requestRender === "function") {
           (sourceRef.current as any).requestRender();
         }
       }
-    }, 5000);
+      animationFrameRef.current = requestAnimationFrame(updateSource);
+    };
 
+    // Start the animation loop
+    animationFrameRef.current = requestAnimationFrame(updateSource);
+
+    // Cleanup on unmount
     return () => {
-      clearInterval(interval);
-      if (map.getLayer(layerId)) map.removeLayer(layerId);
-      if (map.getSource(sourceId)) map.removeSource(sourceId);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+
+      if (map.getLayer(layerId)) {
+        map.removeLayer(layerId);
+      }
+
+      if (map.getSource(sourceId)) {
+        map.removeSource(sourceId);
+      }
     };
   }, [map, highContrast, visible]);
 

@@ -177,12 +177,16 @@ const ToggleButtons = ({
 );
 
 interface MapControlsProps {
-  showTimeFormat: "12h" | "24h"
-  onTimeFormatChange: (format: "12h" | "24h") => void
+  showTimeFormat: "12h" | "24h";
+  onToggleSunAndMoon: (show: boolean) => void;
+  onTimeFormatChange: (format: "12h" | "24h") => void;
+  showSunAndMoonPosition: boolean;
+  showDayNightOverlay: boolean;
+  setShowDayNightOverlay: (show: boolean) => void;
+  showEarthquakes: boolean;
+  onToggleEarthquakes: (show: boolean) => void;
 }
-
-
-export default function MapControls({ showTimeFormat, onTimeFormatChange }: MapControlsProps) {
+export default function MapControls({ showTimeFormat, onTimeFormatChange, showSunAndMoonPosition, onToggleSunAndMoon, showDayNightOverlay, setShowDayNightOverlay }: MapControlsProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("layers");
   const [isLoading, setIsLoading] = useState(true);
@@ -251,10 +255,8 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange }: MapC
   }, [
     getCurrentSettings,
     lastSavedSettings,
-
     mapResolution,
     timeFormat,
-
     showTimeZones,
     showDayNight,
     showSunMoon,
@@ -389,11 +391,11 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange }: MapC
   };
 
   const updateShowDayNight = (show: boolean) => {
-    setShowDayNight(show);
+    setShowDayNightOverlay(show)
   };
 
   const updateShowSunMoon = (show: boolean) => {
-    setShowSunMoon(show);
+    onToggleSunAndMoon(show);
   };
 
   const updateShowWeather = (show: boolean) => {
@@ -431,17 +433,17 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange }: MapC
       {
         title: "Day/Night",
         icon: Sun,
-        isChecked: showDayNight,
+        isChecked: showDayNightOverlay,
         onToggle: updateShowDayNight,
       },
       {
         title: "Sun & Moon",
         icon: Moon,
-        isChecked: showSunMoon,
+        isChecked: showSunAndMoonPosition,
         onToggle: updateShowSunMoon,
       },
     ],
-    [showTimeZones, showDayNight, showSunMoon]
+    [showTimeZones, showDayNightOverlay, showSunAndMoonPosition]
   );
 
   // Show loading state

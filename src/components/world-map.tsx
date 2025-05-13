@@ -256,14 +256,38 @@ const WorldMap: React.FC<WorldMapProps> = () => {
 
     // Create HTML content for the popup
     const popupContent = `
-      <div class="p-3 min-w-[200px]">
-        <h3 class="text-sm font-bold text-white" id="${locationNameId}">Loading location...</h3>
-        <div class="mt-1 text-sm text-indigo-300">
-          <p>Sunrise: <span id="${sunriseTimeId}">Loading...</span></p>
-          <p>Sunset: <span id="${sunsetTimeId}">Loading...</span></p>
+    <div class="p-3 bg-gray-800 rounded-md shadow-md text-white">
+      <h3 class="text-base font-semibold mb-2" id="${locationNameId}">Loading location...</h3>
+      <div class="flex justify-between items-center text-sm">
+        <div class="flex items-center gap-2">
+          <span id="sun-icon"></span>
+          <span>Sunrise:</span>
         </div>
+        <p id="${sunriseTimeId}" class="font-medium">Loading...</p>
       </div>
-    `;
+      <div class="flex justify-between items-center text-sm mt-2">
+        <div class="flex items-center gap-2">
+          <span id="moon-icon"></span>
+          <span>Sunset:</span>
+        </div>
+        <p id="${sunsetTimeId}" class="font-medium">Loading...</p>
+      </div>
+    </div>
+  `;
+  
+  // Dynamically render the Sun and Moon icons using React
+  const sunIconContainer = document.getElementById("sun-icon");
+  const moonIconContainer = document.getElementById("moon-icon");
+  
+  if (sunIconContainer) {
+    const sunRoot = createRoot(sunIconContainer);
+    sunRoot.render(<Sun className="h-4 w-4" />);
+  }
+  
+  if (moonIconContainer) {
+    const moonRoot = createRoot(moonIconContainer);
+    moonRoot.render(<Moon className="h-4 w-4" />);
+  }
 
     // Create popup
     const popup = new mapboxgl.Popup({
@@ -310,6 +334,7 @@ const WorldMap: React.FC<WorldMapProps> = () => {
     console.log("Marker created and added to map");
     return marker;
   };
+
   const fetchLocationName = async (lat: number, lng: number): Promise<string | null> => {
     try {
       const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}`;
@@ -323,6 +348,8 @@ const WorldMap: React.FC<WorldMapProps> = () => {
       return null;
     }
   };
+
+
   const fetchSunriseSunset = async (lat: number, lng: number): Promise<{ sunrise: string; sunset: string }> => {
     try {
       const url = `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lng}&formatted=0`;

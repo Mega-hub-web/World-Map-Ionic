@@ -12,6 +12,7 @@ import {
   Zap,
   Plane,
   ChevronLeft,
+  ChevronRight,
   Moon,
   Clock,
   Palette,
@@ -201,13 +202,17 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange, showSu
   const [mapResolution, setMapResolution] = useState(75);
   const [timeFormat, setTimeFormat] = useState("24h");
   const [showTimeZones, setShowTimeZones] = useState(true);
-  const [showDayNight, setShowDayNight] = useState(true);
+  const [showDayNight, setShowDayNight] = useState(false);
   const [showSunMoon, setShowSunMoon] = useState(true);
   const [showWeather, setShowWeather] = useState(false);
   const [showEarthquakes, setShowEarthquakes] = useState(false);
   const [showAirTraffic, setShowAirTraffic] = useState(false);
+  const [expandedSection, setExpandedSection] = useState(false);
 
-
+  const sectionVariants = {
+    collapsed: { height: 0, opacity: 0, overflow: "hidden" },
+    expanded: { height: "auto", opacity: 1, overflow: "visible" },
+  }
 
   // Helper function to get current user ID
   const getCurrentUserId = useCallback((): string | null => {
@@ -391,6 +396,7 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange, showSu
   };
 
   const updateShowDayNight = (show: boolean) => {
+    setShowDayNight(show);
     setShowDayNightOverlay(show)
   };
 
@@ -431,12 +437,12 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange, showSu
         isChecked: showTimeZones,
         onToggle: updateShowTimeZones,
       },
-      {
-        title: "Day/Night",
-        icon: Sun,
-        isChecked: showDayNightOverlay,
-        onToggle: updateShowDayNight,
-      },
+      // {
+      //   title: "Day/Night",
+      //   icon: Sun,
+      //   isChecked: showDayNightOverlay,
+      //   onToggle: updateShowDayNight,
+      // },
       {
         title: "Sun & Moon",
         icon: Moon,
@@ -480,6 +486,9 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange, showSu
     );
   }
 
+  const toggleSection = () => {
+    setExpandedSection(prev => !prev)
+  }
   return (
     <TooltipProvider>
       <motion.div
@@ -549,6 +558,100 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange, showSu
                       onToggle={section.onToggle}
                     />
                   ))}
+                  <div className="bg-gray-800/40 rounded-lg overflow-hidden border border-gray-700/30">
+                    <button
+                      onClick={() => toggleSection()}
+                      className="w-full flex items-center justify-between p-3 hover:bg-gray-700/30 transition-colors"
+                    >
+                      <div className="flex items-center">
+                        <div className="bg-purple-900/50 p-1.5 rounded-md mr-3">
+                          <Sun className="h-5 w-5 text-amber-400" />
+                        </div>
+                        <span className="font-medium">Day/Night</span>
+                      </div>
+                      <div className="flex items-center">
+                        <Switch
+                          checked={showDayNight}
+                          onCheckedChange={updateShowDayNight}
+                          className="mr-2 data-[state=checked]:bg-indigo-600"
+                        />
+                        {/* <ChevronRight
+                          className={`h-5 w-5 transition-transform ${expandedSection === true ? "rotate-90" : ""}`}
+                        /> */}
+                      </div>
+                    </button>
+
+                    <motion.div
+                      variants={sectionVariants}
+                      initial="collapsed"
+                      animate={expandedSection === true ? "expanded" : "collapsed"}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <div className="p-3 pt-0 space-y-4 border-t border-gray-700/30">
+                        {/* Current date and time display */}
+
+                        {/* Date slider */}
+                        <div className="space-y-2 pt-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm text-gray-300">Date</label>
+                            <span className="text-xs text-gray-400">July 22, 2014</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-white">
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Slider defaultValue={[50]} max={100} step={1} className="flex-1" />
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-white">
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-gray-400">
+                            <span>Jan 1</span>
+                            <span>Dec 31</span>
+                          </div>
+                        </div>
+
+                        {/* Time slider */}
+                        <div className="space-y-2 pt-1">
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm text-gray-300">Time</label>
+                            <span className="text-xs text-gray-400">5:24 AM</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-white">
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Slider defaultValue={[22]} max={100} step={1} className="flex-1" />
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-white">
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-gray-400">
+                            <span>12:00 AM</span>
+                            <span>11:59 PM</span>
+                          </div>
+                        </div>
+
+                        {/* Display options */}
+                        {/* <div className="pt-2 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm text-gray-300">Show terminator line</label>
+                            <Switch defaultChecked className="data-[state=checked]:bg-indigo-600" />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm text-gray-300">Realistic shading</label>
+                            <Switch defaultChecked className="data-[state=checked]:bg-indigo-600" />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm text-gray-300">Shadow intensity</label>
+                            <Slider defaultValue={[60]} max={100} step={5} className="py-1" />
+                          </div>
+                        </div> */}
+
+
+                      </div>
+                    </motion.div>
+                  </div>
                   {/* Premium Features */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">

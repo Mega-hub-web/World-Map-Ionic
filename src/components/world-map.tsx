@@ -256,38 +256,36 @@ const WorldMap: React.FC<WorldMapProps> = () => {
 
     // Create HTML content for the popup
     const popupContent = `
-    <div class="p-3 bg-gray-800 rounded-md shadow-md text-white">
-      <h3 class="text-base font-semibold mb-2" id="${locationNameId}">Loading location...</h3>
-      <div class="flex justify-between items-center text-sm">
-        <div class="flex items-center gap-2">
-          <span id="sun-icon"></span>
-          <span>Sunrise:</span>
-        </div>
-        <p id="${sunriseTimeId}" class="font-medium">Loading...</p>
+   <div class="p-4 bg-gray-900 rounded-lg shadow-lg text-white">
+    <h3 class="text-lg font-bold mb-2" id="${locationNameId}">Loading location...</h3>
+    <div class="flex items-center justify-between text-sm pl-0 pr-0">
+      <div class="flex items-center text-amber-400">
+        <span id="sun-icon"></span>
+        <span>Sunrise:</span>
+        <p id="${sunriseTimeId}" class="font-medium text-white">Loading...</p>
       </div>
-      <div class="flex justify-between items-center text-sm mt-2">
-        <div class="flex items-center gap-2">
-          <span id="moon-icon"></span>
-          <span>Sunset:</span>
-        </div>
-        <p id="${sunsetTimeId}" class="font-medium">Loading...</p>
+      <div class="flex items-center text-indigo-400">
+        <span id="moon-icon"></span>
+        <span>Sunset:</span>
+        <p id="${sunsetTimeId}" class="font-medium text-white">Loading...</p>
       </div>
     </div>
+  </div>
   `;
-  
-  // Dynamically render the Sun and Moon icons using React
-  const sunIconContainer = document.getElementById("sun-icon");
-  const moonIconContainer = document.getElementById("moon-icon");
-  
-  if (sunIconContainer) {
-    const sunRoot = createRoot(sunIconContainer);
-    sunRoot.render(<Sun className="h-4 w-4" />);
-  }
-  
-  if (moonIconContainer) {
-    const moonRoot = createRoot(moonIconContainer);
-    moonRoot.render(<Moon className="h-4 w-4" />);
-  }
+
+    // Dynamically render the Sun and Moon icons using React
+    const sunIconContainer = document.getElementById("sun-icon");
+    const moonIconContainer = document.getElementById("moon-icon");
+
+    if (sunIconContainer) {
+      const sunRoot = createRoot(sunIconContainer);
+      sunRoot.render(<Sun className="h-4 w-4" />);
+    }
+
+    if (moonIconContainer) {
+      const moonRoot = createRoot(moonIconContainer);
+      moonRoot.render(<Moon className="h-4 w-4" />);
+    }
 
     // Create popup
     const popup = new mapboxgl.Popup({
@@ -667,8 +665,8 @@ const WorldMap: React.FC<WorldMapProps> = () => {
   }, [zoom, isAddingPin]);
 
   useEffect(() => {
-    // console.log("Sun position:", sun);
-    // console.log("Moon position:", moon);
+    console.log("Sun position:", sun);
+    console.log("Moon position:", moon);
 
     if (map.current) {
       sunMarkerRef.current?.setLngLat([sun.longitude, sun.latitude]);

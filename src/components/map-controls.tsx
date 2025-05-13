@@ -559,9 +559,11 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange, showSu
                     />
                   ))}
                   <div className="bg-gray-800/40 rounded-lg overflow-hidden border border-gray-700/30">
-                    <button
+                    <div
+                      role="button"
+                      tabIndex={0}
                       onClick={() => toggleSection()}
-                      className="w-full flex items-center justify-between p-3 hover:bg-gray-700/30 transition-colors"
+                      className="w-full flex items-center justify-between p-3 hover:bg-gray-700/30 transition-colors cursor-pointer"
                     >
                       <div className="flex items-center">
                         <div className="bg-purple-900/50 p-1.5 rounded-md mr-3">
@@ -575,11 +577,8 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange, showSu
                           onCheckedChange={updateShowDayNight}
                           className="mr-2 data-[state=checked]:bg-indigo-600"
                         />
-                        {/* <ChevronRight
-                          className={`h-5 w-5 transition-transform ${expandedSection === true ? "rotate-90" : ""}`}
-                        /> */}
                       </div>
-                    </button>
+                    </div>
 
                     <motion.div
                       variants={sectionVariants}

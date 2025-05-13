@@ -3,7 +3,6 @@ import { createRoot } from "react-dom/client";
 import { MapPin, Plus, Minus, Sun, Moon, Clock, X, MapPinIcon } from "lucide-react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { v4 as uuidv4 } from 'uuid';
 import { toast } from "sonner";
 import { fetchData, postData, deleteData } from "../servics/apiService";
 import {
@@ -16,6 +15,15 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "./ui/command"; // Adjust the import path based on your project structure
+
 import { jwtDecode } from "jwt-decode"
 import CityTimeDisplay from "../components/city-time-display"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip"
@@ -24,7 +32,9 @@ import { motion, AnimatePresence } from "framer-motion"
 import { DayNightOverlay } from './day-night-overlay';
 import { TerminatorSource } from '@vicmartini/mapbox-gl-terminator';
 import { useCelestialPositions } from "../hooks/useCelestialPositions"
-
+import { getAllCountries, Country } from "countries-and-timezones"
+import axios from "axios";
+// import cities from "all-the-cities";
 
 // Set your Mapbox access token
 mapboxgl.accessToken = "pk.eyJ1Ijoia3Zjb2F0ZXMiLCJhIjoiY21hNTd0bTZjMDQ0aDJyczkyeG9iZTE5OCJ9.anKjK_Ynna30II4T5t4TeQ";
@@ -54,6 +64,8 @@ const headerCities = [
   { name: "New York", timezone: "America/New_York" },
   { name: "Rio", timezone: "America/Sao_Paulo" },
 ]
+
+const countryList = Object.values(getAllCountries());
 const WorldMap: React.FC<WorldMapProps> = () => {
   // Map state
   const mapRef = useRef<HTMLDivElement>(null);
@@ -83,7 +95,10 @@ const WorldMap: React.FC<WorldMapProps> = () => {
   const [showSunAndMoon, setShowSunAndMoon] = useState(false);
   const [showDayNightOverlay, setShowDayNightOverlay] = useState(false);
   const [showEarthquakes, setShowEarthquakes] = useState(false); // Toggle state for earthquake markers
-
+  const [selectedCountry, setSelectedCountry] = useState("");
+  const [filteredCities, setFilteredCities] = useState<{ name: string; lat: number; lng: number }[]>([]);
+  const [searchCities, setSearchCities] = useState<{ name: string; lat: number; lng: number }[]>([]);
+  const [selectedCity, setSelectedCity] = useState(false);
 
   const { sun, moon } = useCelestialPositions();
 
@@ -135,40 +150,40 @@ const WorldMap: React.FC<WorldMapProps> = () => {
   };
 
   // Function to enable pin placement mode
-  const enablePinPlacementMode = () => {
-    if (map.current) {
-      const currentCenter = map.current.getCenter();
-      const currentZoom = map.current.getZoom();
+  // const enablePinPlacementMode = () => {
+  //   if (map.current) {
+  //     const currentCenter = map.current.getCenter();
+  //     const currentZoom = map.current.getZoom();
 
-      // Set state to indicate we're adding a pin
-      setIsAddingPin(true);
+  //     // Set state to indicate we're adding a pin
+  //     setIsAddingPin(true);
 
-      // Change cursor style
-      map.current.getCanvas().style.cursor = 'crosshair';
+  //     // Change cursor style
+  //     map.current.getCanvas().style.cursor = 'crosshair';
 
-      // Ensure map view doesn't change by explicitly setting it back
-      // Use a slight delay to ensure this happens after any potential view changes
-      setTimeout(() => {
-        if (map.current) {
-          map.current.easeTo({
-            center: currentCenter,
-            zoom: currentZoom,
-            duration: 0 // Instant transition
-          });
-        }
-      }, 10);
+  //     // Ensure map view doesn't change by explicitly setting it back
+  //     // Use a slight delay to ensure this happens after any potential view changes
+  //     setTimeout(() => {
+  //       if (map.current) {
+  //         map.current.easeTo({
+  //           center: currentCenter,
+  //           zoom: currentZoom,
+  //           duration: 0 // Instant transition
+  //         });
+  //       }
+  //     }, 10);
 
-      // Provide haptic feedback if available
-      if (navigator.vibrate) {
-        navigator.vibrate(50);
-      }
+  //     // Provide haptic feedback if available
+  //     if (navigator.vibrate) {
+  //       navigator.vibrate(50);
+  //     }
 
-      // Show toast notification
-      toast.success("Tap on the map to place a pin");
-    } else {
-      setIsAddingPin(true);
-    }
-  };
+  //     // Show toast notification
+  //     toast.success("Tap on the map to place a pin");
+  //   } else {
+  //     setIsAddingPin(true);
+  //   }
+  // };
 
   // Function to disable pin placement mode
   const disablePinPlacementMode = () => {
@@ -347,7 +362,21 @@ const WorldMap: React.FC<WorldMapProps> = () => {
     }
   };
 
+  const fetchCitiesForCountry = async (countryCode: string) => {
+    const res = await fetchData(`/cities/${countryCode}`);
+    setFilteredCities(res);
+    setSearchCities(res);
+    console.log(res);
+  };
 
+  const getCitiesForCountry = (query: string) => {
+    console.log(filteredCities.filter(item => item.name.indexOf(query) !== -1))
+    if (query === "") {
+      setSearchCities(filteredCities)
+    } else {
+      setSearchCities(filteredCities.filter(item => item.name.indexOf(query) !== -1))
+    }
+  }
   const fetchSunriseSunset = async (lat: number, lng: number): Promise<{ sunrise: string; sunset: string }> => {
     try {
       const url = `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lng}&formatted=0`;
@@ -486,9 +515,12 @@ const WorldMap: React.FC<WorldMapProps> = () => {
 
     // Close modal and reset form
     setShowAddPinModal(false);
-    setNewPinName('');
-    setNewPinLat('');
-    setNewPinLng('');
+    setNewPinLat("");
+    setNewPinLng("");
+    setNewPinName("");
+    setSelectedCountry("");
+    setSelectedCity(false);
+    setSearchCities([]);
 
     // Remove temporary marker if it exists
     if (tempMarker) {
@@ -595,35 +627,35 @@ const WorldMap: React.FC<WorldMapProps> = () => {
 
 
           // Set up click and mousemove handlers
-          map.current?.on('click', (e) => {
-            if (isAddingPin) {
-              const { lng, lat } = e.lngLat;
+          // map.current?.on('click', (e) => {
+          //   if (isAddingPin) {
+          //     const { lng, lat } = e.lngLat;
 
-              // Remove any existing temporary marker
-              if (tempMarker) {
-                tempMarker.remove();
-              }
+          //     // Remove any existing temporary marker
+          //     if (tempMarker) {
+          //       tempMarker.remove();
+          //     }
 
-              // Create a temporary marker at the clicked location
-              const marker = new mapboxgl.Marker({
-                color: '#FF5733',
-                draggable: true
-              })
-                .setLngLat([lng, lat])
-                .addTo(map.current!);
+          //     // Create a temporary marker at the clicked location
+          //     const marker = new mapboxgl.Marker({
+          //       color: '#FF5733',
+          //       draggable: true
+          //     })
+          //       .setLngLat([lng, lat])
+          //       .addTo(map.current!);
 
-              setTempMarker(marker);
+          //     setTempMarker(marker);
 
-              console.log(lat, typeof lat)
-              // Open the add pin modal with pre-filled coordinates
-              setNewPinLat(lat.toFixed(6));
-              setNewPinLng(lng.toFixed(6));
-              setShowAddPinModal(true);
+          //     console.log(lat, typeof lat)
+          //     // Open the add pin modal with pre-filled coordinates
+          //     setNewPinLat(lat.toFixed(6));
+          //     setNewPinLng(lng.toFixed(6));
+          //     setShowAddPinModal(true);
 
-              // Exit pin placement mode
-              disablePinPlacementMode();
-            }
-          });
+          //     // Exit pin placement mode
+          //     disablePinPlacementMode();
+          //   }
+          // });
 
           map.current?.on('mousemove', (e) => {
             if (isAddingPin && tempMarker) {
@@ -665,7 +697,7 @@ const WorldMap: React.FC<WorldMapProps> = () => {
   }, [zoom, isAddingPin]);
 
   useEffect(() => {
-    // console.log("Sun position:", sun);
+    // console.log("Sun position:", sun); 
     // console.log("Moon position:", moon);
 
     if (map.current) {
@@ -926,7 +958,8 @@ const WorldMap: React.FC<WorldMapProps> = () => {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        enablePinPlacementMode();
+                        // enablePinPlacementMode();
+                        setShowAddPinModal(true);
                       }}
                       className="bg-gray-800/80 backdrop-blur-sm border-gray-700/50 text-white hover:bg-gray-700 h-12 w-12 rounded-full shadow-lg"
                     >
@@ -969,7 +1002,6 @@ const WorldMap: React.FC<WorldMapProps> = () => {
             <div
               ref={mapRef}
               className="absolute inset-0 w-full h-full"
-              style={{ cursor: isDragging ? "grabbing" : isAddingPin ? "crosshair" : "grab" }}
             ></div>
             {/* Day/Night overlay */}
             {showDayNightOverlay && map.current && (
@@ -987,16 +1019,75 @@ const WorldMap: React.FC<WorldMapProps> = () => {
                   <DialogTitle className="text-xl font-bold">Add New Location</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
+                  {/* Country Selector */}
                   <div className="space-y-2">
-                    <Label htmlFor="pin-name">Location Name</Label>
-                    <Input
-                      id="pin-name"
-                      value={newPinName}
-                      onChange={(e) => setNewPinName(e.target.value)}
-                      placeholder="e.g. Home, Office, Favorite Cafe"
-                      className="bg-gray-800 border-gray-700 text-white"
-                    />
+                    <Label htmlFor="country-select">Select Country</Label>
+                    <select
+                      id="country-select"
+                      value={selectedCountry}
+                      onChange={(e) => {
+                        const countryCode = e.target.value;
+                        setSelectedCountry(countryCode);
+                        fetchCitiesForCountry(countryCode);
+                        setNewPinLat("");
+                        setNewPinLng("");
+                        setNewPinName("");
+                        setSelectedCity(false);
+                        setSearchCities([]);
+                      }}
+                      className="bg-gray-800 border-gray-700 text-white w-full p-2 rounded-lg"
+                    >
+                      <option value="" disabled>
+                        -- Select a Country --
+                      </option>
+                      {countryList.map((country) => (
+                        <option key={country.id} value={country.id}>
+                          {country.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
+
+                  {/* City Selector */}
+                  <div className="space-y-2">
+                    <Label htmlFor="city-combobox">Search City</Label>
+                    <Command className="bg-gray-800 border-gray-700 text-white">
+                      <CommandInput
+                        id="city-command"
+                        placeholder="Type a city name (e.g., New York)"
+                        value={newPinName}
+                        onValueChange={(value: string) => {
+                          const query = value;
+                          setNewPinName(query);
+                          // Fetch cities dynamically based on user input
+                          getCitiesForCountry(query);
+                          setSelectedCity(false)
+                        }}
+                      />
+                      <CommandList>
+                        {searchCities.length > 0 || selectedCity === true ? (
+                          searchCities.map((city, index) => (
+                            <CommandItem
+                              key={`${city.name}-${index}`}
+                              onSelect={() => {
+                                setNewPinName(city.name);
+                                setNewPinLat(city.lat.toString());
+                                setNewPinLng(city.lng.toString());
+                                setSearchCities([]); // Clear the dropdown after selection
+                                setSelectedCity(true);
+                              }}
+                            >
+                              {city.name}
+                            </CommandItem>
+                          ))
+                        ) : (
+                          <CommandEmpty>No cities found</CommandEmpty>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </div>
+
+                  {/* Latitude and Longitude Fields */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="pin-lat">Latitude</Label>
@@ -1006,6 +1097,7 @@ const WorldMap: React.FC<WorldMapProps> = () => {
                         onChange={(e) => setNewPinLat(e.target.value)}
                         placeholder="e.g. 40.7128"
                         className="bg-gray-800 border-gray-700 text-white"
+                        disabled
                       />
                     </div>
                     <div className="space-y-2">
@@ -1016,6 +1108,7 @@ const WorldMap: React.FC<WorldMapProps> = () => {
                         onChange={(e) => setNewPinLng(e.target.value)}
                         placeholder="e.g. -74.0060"
                         className="bg-gray-800 border-gray-700 text-white"
+                        disabled
                       />
                     </div>
                   </div>
@@ -1029,13 +1122,22 @@ const WorldMap: React.FC<WorldMapProps> = () => {
                         tempMarker.remove();
                         setTempMarker(null);
                       }
+                      setNewPinLat("");
+                      setNewPinLng("");
+                      setNewPinName("");
+                      setSelectedCountry("");
+                      setSelectedCity(false);
+                      setSearchCities([]);
                     }}
                     className="bg-transparent border-gray-700 text-gray-300 hover:bg-gray-800"
                   >
                     Cancel
                   </Button>
                   <Button
-                    onClick={addCustomPin}
+                    onClick={() => {
+                      addCustomPin();
+
+                    }}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white"
                   >
                     Save Location

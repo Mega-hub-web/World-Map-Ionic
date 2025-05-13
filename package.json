@@ -55,6 +55,7 @@
     "axios": "^1.9.0",
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",
+    "countries-and-timezones": "^3.8.0",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.9.2",
     "input-otp": "^1.4.2",

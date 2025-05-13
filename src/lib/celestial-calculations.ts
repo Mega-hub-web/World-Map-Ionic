@@ -23,35 +23,39 @@ export function calculateGMST(date: Date) {
   return ((GMST % 360) + 360) % 360;
 }
 
-// --- Accurate Subsolar Point ---
 export function getSubsolarPoint(date: Date) {
   const observer = new Observer(0, 0, 0); // Observer at Earth's center
   const sunPos = Equator(Body.Sun, date, observer, true, true); // Get Sun's equatorial position
+  const gmst = calculateGMST(date);
+
+  // Reverse the longitude calculation
+  const longitude = (sunPos.ra * 15 - gmst + 360) % 360;
+
+  // Normalize longitude to [-180, 180]
+  const normalizedLongitude = longitude > 180 ? longitude - 360 : longitude;
+
   return {
     latitude: sunPos.dec, // Declination (latitude)
-    longitude: -sunPos.ra * 15, // Right Ascension converted to longitude
+    longitude: normalizedLongitude, // Corrected longitude
   };
 }
 
-// --- Accurate Sublunar Point ---
 export function getSublunarPoint(date: Date) {
   const observer = new Observer(0, 0, 0); // Observer at Earth's center
   const moonPos = Equator(Body.Moon, date, observer, true, true); // Get Moon's equatorial position
-  const raDeg = moonPos.ra * 15;
-
-  // Convert GMST to degrees
   const gmst = calculateGMST(date);
 
-  // Subtract RA from GMST to get geographic longitude
-  let lon = (gmst - raDeg + 360) % 360;
-  if (lon > 180) lon -= 360;
+  // Reverse the longitude calculation
+  const longitude = (moonPos.ra * 15 - gmst + 360) % 360;
+
+  // Normalize longitude to [-180, 180]
+  const normalizedLongitude = longitude > 180 ? longitude - 360 : longitude;
 
   return {
-    latitude: moonPos.dec,
-    longitude: lon,
+    latitude: moonPos.dec, // Declination (latitude)
+    longitude: normalizedLongitude, // Corrected longitude
   };
 }
-
 // --- Local Sun Position ---
 export function calculateSunPosition(
   date: Date,

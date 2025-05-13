@@ -665,8 +665,8 @@ const WorldMap: React.FC<WorldMapProps> = () => {
   }, [zoom, isAddingPin]);
 
   useEffect(() => {
-    console.log("Sun position:", sun);
-    console.log("Moon position:", moon);
+    // console.log("Sun position:", sun);
+    // console.log("Moon position:", moon);
 
     if (map.current) {
       sunMarkerRef.current?.setLngLat([sun.longitude, sun.latitude]);

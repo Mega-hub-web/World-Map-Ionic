@@ -19,18 +19,21 @@ import {
   Eye,
   Sliders,
   Compass,
+  Plus,
+  X,
+  Check,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Switch } from "../components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Slider } from "../components/ui/slider";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "../components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { fetchData, postData } from "../servics/apiService";
 import { toast } from "sonner";
 import { jwtDecode } from "jwt-decode";
-
 // interface MapControlsProps {
 //   position?: string;
 //   mapStyle: string;
@@ -38,6 +41,12 @@ import { jwtDecode } from "jwt-decode";
 //   showNasaMap: boolean;
 //   setShowNasaMap: (show: boolean) => void;
 // }
+
+interface City {
+  name: string
+  region: string
+  timezone: string
+}
 
 
 interface MapSettings {
@@ -51,6 +60,12 @@ interface MapSettings {
   timeFormat: string;
 }
 
+interface MapControlsProps {
+  timeFormat: "12h" | "24h"
+  onTimeFormatChange: (format: "12h" | "24h") => void
+  headerCities: City[]
+  onHeaderCitiesChange: (cities: City[]) => void
+}
 
 const Section = ({
   title,
@@ -177,6 +192,24 @@ const ToggleButtons = ({
   </div>
 );
 
+const availableCities: City[] = [
+  { name: "London", region: "Europe", timezone: "Europe/London" },
+  { name: "Paris", region: "Europe", timezone: "Europe/Paris" },
+  { name: "Berlin", region: "Europe", timezone: "Europe/Berlin" },
+  { name: "New York", region: "America", timezone: "America/New_York" },
+  { name: "Chicago", region: "America", timezone: "America/Chicago" },
+  { name: "Los Angeles", region: "America", timezone: "America/Los_Angeles" },
+  { name: "Tokyo", region: "Asia", timezone: "Asia/Tokyo" },
+  { name: "Beijing", region: "Asia", timezone: "Asia/Shanghai" },
+  { name: "Sydney", region: "Australia", timezone: "Australia/Sydney" },
+  { name: "Dubai", region: "Asia", timezone: "Asia/Dubai" },
+  { name: "Moscow", region: "Europe", timezone: "Europe/Moscow" },
+  { name: "Rio de Janeiro", region: "America", timezone: "America/Sao_Paulo" },
+  { name: "Cairo", region: "Africa", timezone: "Africa/Cairo" },
+  { name: "Johannesburg", region: "Africa", timezone: "Africa/Johannesburg" },
+  { name: "Harare", region: "Africa", timezone: "Africa/Harare" },
+]
+
 interface MapControlsProps {
   showTimeFormat: "12h" | "24h";
   onToggleSunAndMoon: (show: boolean) => void;
@@ -186,8 +219,11 @@ interface MapControlsProps {
   setShowDayNightOverlay: (show: boolean) => void;
   showEarthQuakesData: boolean;
   onToggleEarthquakes: (show: boolean) => void;
+  headerCities: City[]
+  onHeaderCitiesChange: (cities: City[]) => void
 }
-export default function MapControls({ showTimeFormat, onTimeFormatChange, showSunAndMoonPosition, onToggleSunAndMoon, showDayNightOverlay, setShowDayNightOverlay, showEarthQuakesData, onToggleEarthquakes }: MapControlsProps) {
+export default function MapControls({ showTimeFormat, onTimeFormatChange, showSunAndMoonPosition, onToggleSunAndMoon, showDayNightOverlay, setShowDayNightOverlay, showEarthQuakesData, onToggleEarthquakes, headerCities,
+  onHeaderCitiesChange, }: MapControlsProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("layers");
   const [isLoading, setIsLoading] = useState(true);
@@ -208,12 +244,21 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange, showSu
   const [showEarthquakes, setShowEarthquakes] = useState(false);
   const [showAirTraffic, setShowAirTraffic] = useState(false);
   const [expandedSection, setExpandedSection] = useState(false);
+  const [showAddCityModal, setShowAddCityModal] = useState(false)
+  const [tempUnit, setTempUnit] = useState("celsius")
+  const [dateStyleOpen, setDateStyleOpen] = useState(false)
+  const [selectedDateStyle, setSelectedDateStyle] = useState("7 January, 2018")
+
+  const dateStyleOptions = ["7 January, 2018", "January 7, 2018", "2018 January 7", "Sunday, January 7, 2018"]
 
   const sectionVariants = {
     collapsed: { height: 0, opacity: 0, overflow: "hidden" },
     expanded: { height: "auto", opacity: 1, overflow: "visible" },
   }
-
+  const dropdownVariants = {
+    hidden: { opacity: 0, height: 0, overflow: "hidden" },
+    visible: { opacity: 1, height: "auto", overflow: "visible" },
+  }
   // Helper function to get current user ID
   const getCurrentUserId = useCallback((): string | null => {
     const token = localStorage.getItem('authToken');
@@ -271,52 +316,32 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange, showSu
   ]);
 
   // Fetch settings from backend on component mount
-  useEffect(() => {
-    const fetchMapSettings = async () => {
-      const userId = getCurrentUserId();
-      if (!userId) {
-        setIsLoading(false);
-        return; // Use default settings for non-logged in users
-      }
+  // useEffect(() => {
+  //   const fetchMapSettings = async () => {
+  //     const userId = getCurrentUserId();
+  //     if (!userId) {
+  //       setIsLoading(false);
+  //       return; // Use default settings for non-logged in users
+  //     }
 
-      try {
-        // const response = await fetchData(`/map-settings/${userId}`);
-        // if (response && response.data) {
-        //   const settings = response.data;
+  //     try {
 
-        //   // Update all settings from backend
+  //     } catch (error) {
+  //       console.error("Error fetching map settings:", error);
+  //       setIsLoading(false);
+  //       // Continue with default settings
+  //     } finally {
+  //       setIsLoading(false);
+  //     }
+  //   };
 
-        //   setMapResolution(settings.mapResolution || 75);
-        //   setTimeFormat(settings.timeFormat || "24h");
+  //   fetchMapSettings();
 
-        //   setShowTimeZones(settings.showTimeZones || true);
-        //   setShowDayNight(settings.showDayNight || true);
-        //   setShowSunMoon(settings.showSunMoon || true);
-        //   setShowWeather(settings.showWeather || false);
-        //   setShowEarthquakes(settings.showEarthquakes || false);
-        //   setShowAirTraffic(settings.showAirTraffic || false);
-
-        //   // Store last saved settings
-        //   setLastSavedSettings(settings);
-
-        //   console.log("Map settings loaded from server:", settings);
-        // }
-      } catch (error) {
-        console.error("Error fetching map settings:", error);
-        setIsLoading(false);
-        // Continue with default settings
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchMapSettings();
-
-    // Set isMounted to false when component unmounts
-    return () => {
-      isMounted.current = false;
-    };
-  }, [getCurrentUserId]);
+  //   // Set isMounted to false when component unmounts
+  //   return () => {
+  //     isMounted.current = false;
+  //   };
+  // }, [getCurrentUserId]);
 
   // Save settings to backend
   const saveSettingsToBackend = async () => {
@@ -454,16 +479,16 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange, showSu
   );
 
   // Show loading state
-  if (isLoading) {
-    return (
-      <div className="absolute left-0 top-0 h-full z-20">
-        <div className="bg-gray-900/95 backdrop-blur-md border-r border-gray-800/50 text-white h-full w-80 shadow-xl flex flex-col items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500 mb-4"></div>
-          <p className="text-gray-300">Loading settings...</p>
-        </div>
-      </div>
-    );
-  }
+  // if (isLoading) {
+  //   return (
+  //     <div className="absolute left-0 top-0 h-full z-20">
+  //       <div className="bg-gray-900/95 backdrop-blur-md border-r border-gray-800/50 text-white h-full w-80 shadow-xl flex flex-col items-center justify-center">
+  //         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500 mb-4"></div>
+  //         <p className="text-gray-300">Loading settings...</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   if (!isOpen) {
     return (
@@ -489,6 +514,38 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange, showSu
   const toggleSection = () => {
     setExpandedSection(prev => !prev)
   }
+
+  // Format current time for a timezone
+  const formatCityTime = (timezone: string) => {
+    try {
+      const options: Intl.DateTimeFormatOptions = {
+        hour: "numeric",
+        minute: "numeric",
+        hour12: timeFormat === "12h",
+        timeZone: timezone,
+      }
+
+      return new Date().toLocaleTimeString("en-US", options)
+    } catch (error) {
+      return "--:--"
+    }
+  }
+
+  const removeCity = (cityToRemove: City) => {
+    const updatedCities = headerCities.filter((city) => city.name !== cityToRemove.name)
+    onHeaderCitiesChange(updatedCities)
+  }
+
+
+  const addCity = (cityToAdd: City) => {
+    // Check if city already exists
+    if (!headerCities.some((city) => city.name === cityToAdd.name)) {
+      const updatedCities = [...headerCities, cityToAdd]
+      onHeaderCitiesChange(updatedCities)
+    }
+    setShowAddCityModal(false)
+  }
+
   return (
     <TooltipProvider>
       <motion.div
@@ -732,28 +789,204 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange, showSu
                       <Clock className="h-4 w-4 mr-2 text-indigo-400" />
                       Time Format
                     </h3>
+                    <div className="bg-gray-800/40 rounded-lg p-3 border border-gray-700/30 space-y-4">
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => onTimeFormatChange("24h")}
+                          className={`flex-1 py-2 px-3 rounded-md text-sm ${showTimeFormat === "24h"
+                            ? "bg-indigo-600 text-white"
+                            : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                            }`}
+                        >
+                          24-hour
+                        </button>
+                        <button
+                          onClick={() => onTimeFormatChange("12h")}
+                          className={`flex-1 py-2 px-3 rounded-md text-sm ${showTimeFormat === "12h"
+                            ? "bg-indigo-600 text-white"
+                            : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                            }`}
+                        >
+                          12-hour (AM/PM)
+                        </button>
+                      </div>
+                      {/* Date style */}
+                      <div className="relative space-y-2">
+                        <label className="text-sm text-gray-300">Date style</label>
+
+                        <button
+                          onClick={() => setDateStyleOpen(!dateStyleOpen)}
+                          className="w-full bg-gray-800 border border-gray-700 rounded-md p-2 text-sm text-white flex justify-between items-center"
+                        >
+                          <span>{selectedDateStyle}</span>
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform duration-200 ${dateStyleOpen ? "rotate-180" : ""}`}
+                          />
+                        </button>
+
+                        <AnimatePresence>
+                          {dateStyleOpen && (
+                            <motion.div
+                              initial="hidden"
+                              animate="visible"
+                              exit="hidden"
+                              variants={dropdownVariants}
+                              transition={{ duration: 0.2 }}
+                              className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-md shadow-lg"
+                            >
+                              {dateStyleOptions.map((option) => (
+                                <button
+                                  key={option}
+                                  className={`w-full text-left p-2 text-sm hover:bg-gray-700 flex justify-between items-center ${selectedDateStyle === option ? "bg-gray-700/50 text-white" : "text-gray-300"
+                                    }`}
+                                  onClick={() => {
+                                    setSelectedDateStyle(option)
+                                    setDateStyleOpen(false)
+                                  }}
+                                >
+                                  {option}
+                                  {selectedDateStyle === option && <Check className="h-4 w-4 text-indigo-400" />}
+                                </button>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      {/* Date separators */}
+                      <div className="space-y-2">
+                        <label className="text-sm text-gray-300">Date separators</label>
+                        <div className="space-y-2">
+                          {[
+                            { id: "slash", label: "M/D/YYYY" },
+                            { id: "dash", label: "M-D-YYYY" },
+                            { id: "dot", label: "M.D.YYYY" },
+                          ].map((separator) => (
+                            <div key={separator.id} className="flex items-center">
+                              <input
+                                type="radio"
+                                id={`separator-${separator.id}`}
+                                name="date-separator"
+                                className="mr-2 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-700 bg-gray-800"
+                                defaultChecked={separator.id === "slash"}
+                              />
+                              <label htmlFor={`separator-${separator.id}`} className="text-sm text-gray-300">
+                                {separator.label}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Date format */}
+                      <div className="space-y-2">
+                        <label className="text-sm text-gray-300">Date format</label>
+                        <div className="space-y-2">
+                          {[
+                            { id: "mdy", label: "M/D/YYYY" },
+                            { id: "dmy", label: "D/M/YYYY" },
+                            { id: "ymd", label: "YYYY/M/D" },
+                            { id: "ydm", label: "YYYY/D/M" },
+                          ].map((format) => (
+                            <div key={format.id} className="flex items-center">
+                              <input
+                                type="radio"
+                                id={`format-${format.id}`}
+                                name="date-format"
+                                className="mr-2 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-700 bg-gray-800"
+                                defaultChecked={format.id === "mdy"}
+                              />
+                              <label htmlFor={`format-${format.id}`} className="text-sm text-gray-300">
+                                {format.label}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="text-xs text-gray-400 pt-1">
+                        These settings affect all date and time displays throughout the application.
+                      </div>
+                    </div>
+                  </div>
+                  {/* WorldWide Clock */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium text-gray-300 flex items-center">
+                      <Clock className="h-4 w-4 mr-2 text-indigo-400" />
+                      Header Clocks
+                    </h3>
+                    <div className="space-y-3 bg-gray-800/40 rounded-lg p-3 border border-gray-700/30">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-sm font-medium text-gray-300">Manage Header Clocks</h3>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 rounded-full bg-green-600 hover:bg-green-700"
+                          onClick={() => setShowAddCityModal(true)}
+                        >
+                          <Plus className="h-4 w-4 text-white" />
+                        </Button>
+                      </div>
+                      <div className="text-xs text-gray-400 mb-2">{headerCities.length} clocks displayed in header</div>
+
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                        {headerCities.map((city) => (
+                          <div
+                            key={city.name}
+                            className="bg-gray-800/50 rounded-md p-2 flex justify-between items-center"
+                          >
+                            <div>
+                              <div className="font-medium text-white">{city.name}</div>
+                              <div className="text-xs text-gray-400">{city.region}</div>
+                              {/* <div className="text-xs text-gray-400">{city.region}</div> */}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="text-sm font-medium text-white">{formatCityTime(city.timezone)}</div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 rounded-full bg-red-500/80 hover:bg-red-600"
+                                onClick={() => removeCity(city)}
+                              >
+                                <X className="h-3 w-3 text-white" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="text-xs text-gray-400 pt-1">
+                        These clocks will be displayed in the header bar at the top of the map view.
+                      </div>
+                    </div>
+                  </div>
+                  {/* Temperature Unit */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium text-gray-300 flex items-center">
+                      <Thermometer className="h-4 w-4 mr-2 text-indigo-400" />
+                      Temperature Unit
+                    </h3>
                     <div className="flex space-x-2">
                       <button
-                        onClick={() => onTimeFormatChange("24h")}
-                        className={`flex-1 py-2 px-3 rounded-md text-sm ${showTimeFormat === "24h"
+                        onClick={() => setTempUnit("celsius")}
+                        className={`flex-1 py-2 px-3 rounded-md text-sm ${tempUnit === "celsius"
                           ? "bg-indigo-600 text-white"
                           : "bg-gray-800 text-gray-300 hover:bg-gray-700"
                           }`}
                       >
-                        24-hour
+                        Celsius (°C)
                       </button>
                       <button
-                        onClick={() => onTimeFormatChange("12h")}
-                        className={`flex-1 py-2 px-3 rounded-md text-sm ${showTimeFormat === "12h"
+                        onClick={() => setTempUnit("fahrenheit")}
+                        className={`flex-1 py-2 px-3 rounded-md text-sm ${tempUnit === "fahrenheit"
                           ? "bg-indigo-600 text-white"
                           : "bg-gray-800 text-gray-300 hover:bg-gray-700"
                           }`}
                       >
-                        12-hour (AM/PM)
+                        Fahrenheit (°F)
                       </button>
                     </div>
                   </div>
-
                 </div>
               </TabsContent>
               <TabsContent value="info" className="mt-0 h-full">
@@ -839,6 +1072,46 @@ export default function MapControls({ showTimeFormat, onTimeFormatChange, showSu
           </Tabs>
         </div>
       </motion.div>
+      {/* Add City Modal */}
+      {showAddCityModal && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50"
+          onClick={() => setShowAddCityModal(false)}
+        >
+          <div
+            className="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-full max-w-md p-6 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-bold text-white mb-4">Add City Clock</h3>
+            <div className="max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+              {availableCities
+                .filter((city) => !headerCities.some((c) => c.name === city.name))
+                .map((city) => (
+                  <button
+                    key={city.name}
+                    onClick={() => addCity(city)}
+                    className="flex justify-between items-center w-full p-3 mb-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-left"
+                  >
+                    <div>
+                      <div className="text-white font-medium">{city.name}</div>
+                      <div className="text-gray-400 text-sm">{city.region}</div>
+                    </div>
+                    <div className="text-gray-300">{formatCityTime(city.timezone)}</div>
+                  </button>
+                ))}
+            </div>
+            <div className="mt-4 flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowAddCityModal(false)}
+                className="bg-gray-800 border-gray-700 text-white hover:bg-gray-700"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </TooltipProvider>
   );
 }

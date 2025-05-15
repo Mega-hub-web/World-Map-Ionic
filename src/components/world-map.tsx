@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import { MapPin, Plus, Minus, Sun, Moon, Clock, X, MapPinIcon } from "lucide-react";
+import { MapPin, Plus, Minus, Sun, Moon, Cloud, CloudRain, CloudSnow, CloudLightning, Wind } from "lucide-react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { toast } from "sonner";
@@ -23,17 +23,15 @@ import {
   CommandItem,
   CommandList,
 } from "./ui/command"; // Adjust the import path based on your project structure
-
 import { jwtDecode } from "jwt-decode"
 import CityTimeDisplay from "../components/city-time-display"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip"
 import MapControls from "./map-controls";
 import { motion, AnimatePresence } from "framer-motion"
 import { DayNightOverlay } from './day-night-overlay';
-import { TerminatorSource } from '@vicmartini/mapbox-gl-terminator';
 import { useCelestialPositions } from "../hooks/useCelestialPositions"
 import { getAllCountries, Country } from "countries-and-timezones"
-import axios from "axios";
+import Header from "./header";
 // import cities from "all-the-cities";
 
 // Set your Mapbox access token
@@ -56,14 +54,26 @@ interface JwtPayload {
   id: string;
 }
 
-const headerCities = [
-  { name: "UTC", timezone: "UTC" },
-  { name: "London", timezone: "Europe/London" },
-  { name: "Hong Kong", timezone: "Asia/Hong_Kong" },
-  { name: "Delhi", timezone: "Asia/Kolkata" },
-  { name: "New York", timezone: "America/New_York" },
-  { name: "Rio", timezone: "America/Sao_Paulo" },
-]
+interface City {
+  name: string
+  region: string
+  timezone: string
+  weather?: {
+    condition: string
+    temperature: number
+    icon: React.ReactNode
+  }
+}
+
+const weatherIcons = {
+  sunny: <Sun className="h-5 w-5 text-yellow-300" />,
+  cloudy: <Cloud className="h-5 w-5 text-gray-300" />,
+  rainy: <CloudRain className="h-5 w-5 text-blue-300" />,
+  snowy: <CloudSnow className="h-5 w-5 text-white" />,
+  stormy: <CloudLightning className="h-5 w-5 text-yellow-300" />,
+  windy: <Wind className="h-5 w-5 text-blue-200" />,
+}
+
 
 const countryList = Object.values(getAllCountries());
 const WorldMap: React.FC<WorldMapProps> = () => {
@@ -102,6 +112,66 @@ const WorldMap: React.FC<WorldMapProps> = () => {
 
   const { sun, moon } = useCelestialPositions();
 
+
+  // Collect current settings
+  const [headerCities, setHeaderCities] = useState<City[]>([
+    {
+      name: "UTC",
+      region: "Universal",
+      timezone: "UTC",
+    },
+    {
+      name: "London",
+      region: "Europe",
+      timezone: "Europe/London",
+      weather: {
+        condition: "cloudy",
+        temperature: 12,
+        icon: weatherIcons.cloudy,
+      },
+    },
+    {
+      name: "Hong Kong",
+      region: "Asia",
+      timezone: "Asia/Hong_Kong",
+      weather: {
+        condition: "rainy",
+        temperature: 24,
+        icon: weatherIcons.rainy,
+      },
+    },
+    {
+      name: "Delhi",
+      region: "Asia",
+      timezone: "Asia/Kolkata",
+      weather: {
+        condition: "cloudy",
+        temperature: 4,
+        icon: weatherIcons.cloudy,
+      },
+    },
+    {
+      name: "New York",
+      region: "America",
+      timezone: "America/New_York",
+      weather: {
+        condition: "sunny",
+        temperature: 18,
+        icon: weatherIcons.sunny,
+      },
+    },
+    {
+      name: "Rio",
+      region: "America",
+      timezone: "America/Sao_Paulo",
+      weather: {
+        condition: "stormy",
+        temperature: 28,
+        icon: weatherIcons.stormy,
+      },
+    },
+  ])
+
   // Helper function to get current user ID
   const getCurrentUserId = (): string | null => {
     // Get the auth token from localStorage
@@ -124,66 +194,6 @@ const WorldMap: React.FC<WorldMapProps> = () => {
     }
   };
 
-  // Helper function to get timezone from coordinates
-  const getTimezoneFromCoordinates = (lat: number, lng: number): string => {
-    // This is a simplified version. In a real app, you would use a timezone API
-    // or library like timezone-boundary-builder with point-in-polygon checks
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  };
-
-  // Helper function to update time display
-  const updateTimeDisplay = (element: HTMLElement, timezone: string) => {
-    try {
-      const now = new Date();
-      const options: Intl.DateTimeFormatOptions = {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-        timeZone: timezone
-      };
-      element.textContent = new Intl.DateTimeFormat('en-US', options).format(now);
-    } catch (error) {
-      console.error("Error updating time display:", error);
-      element.textContent = "Time unavailable";
-    }
-  };
-
-  // Function to enable pin placement mode
-  // const enablePinPlacementMode = () => {
-  //   if (map.current) {
-  //     const currentCenter = map.current.getCenter();
-  //     const currentZoom = map.current.getZoom();
-
-  //     // Set state to indicate we're adding a pin
-  //     setIsAddingPin(true);
-
-  //     // Change cursor style
-  //     map.current.getCanvas().style.cursor = 'crosshair';
-
-  //     // Ensure map view doesn't change by explicitly setting it back
-  //     // Use a slight delay to ensure this happens after any potential view changes
-  //     setTimeout(() => {
-  //       if (map.current) {
-  //         map.current.easeTo({
-  //           center: currentCenter,
-  //           zoom: currentZoom,
-  //           duration: 0 // Instant transition
-  //         });
-  //       }
-  //     }, 10);
-
-  //     // Provide haptic feedback if available
-  //     if (navigator.vibrate) {
-  //       navigator.vibrate(50);
-  //     }
-
-  //     // Show toast notification
-  //     toast.success("Tap on the map to place a pin");
-  //   } else {
-  //     setIsAddingPin(true);
-  //   }
-  // };
 
   // Function to disable pin placement mode
   const disablePinPlacementMode = () => {
@@ -229,18 +239,6 @@ const WorldMap: React.FC<WorldMapProps> = () => {
     } catch (error) {
       console.error("Error saving pin to server:", error);
       throw error;
-    }
-  };
-
-  // Function to delete pin from server
-  const deletePinFromServer = async (userId: string | null, pinId: string): Promise<boolean> => {
-    try {
-      await deleteData(`/map-pins/${userId}/${pinId}`);
-      console.log("Pin deleted from server");
-      return true;
-    } catch (error) {
-      console.error("Error deleting pin from server:", error);
-      return false;
     }
   };
 
@@ -580,82 +578,7 @@ const WorldMap: React.FC<WorldMapProps> = () => {
             }
           }
           fetchAndDisplayEarthquakes();
-          // Add Sun marker
-          // if (!sunMarkerRef.current) {
-          //   const sunEl = document.createElement("div");
-          //   const sunRoot = createRoot(sunEl);
-          //   sunRoot.render(
-          //     <div className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2">
-          //       <div className="relative">
-          //         <Sun className="h-8 w-8 text-yellow-500 fill-yellow-500" />
-          //         <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-yellow-500/30 animate-pulse" />
-          //         <div className="absolute -top-2 -right-2 -left-2 -bottom-2 rounded-full bg-yellow-500/20" />
-          //         <div className="absolute -top-4 -right-4 -left-4 -bottom-4 rounded-full bg-yellow-500/10" />
-          //         <div className="absolute -top-8 -right-8 -left-8 -bottom-8 rounded-full bg-yellow-500/5 animate-pulse-glow" />
-          //       </div>
-          //     </div>
-          //   );
 
-          //   sunMarkerRef.current = new mapboxgl.Marker(sunEl)
-          //     .setLngLat([moon.longitude, moon.latitude])
-
-          //     .addTo(map.current!);
-          // } else {
-          //   // Just update position
-          //   sunMarkerRef.current.setLngLat([moon.longitude, moon.latitude])
-          // }
-
-          // // Add Moon marker
-          // if (!moonMarkerRef.current) {
-          //   const moonEl = document.createElement("div");
-          //   const moonRoot = createRoot(moonEl);
-          //   moonRoot.render(
-          //     <div className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2">
-          //       <Moon className="h-7 w-7 text-indigo-400 fill-indigo-400" />
-          //       <div className="absolute -top-1 -right-1 -left-1 -bottom-1 rounded-full bg-indigo-400/30 animate-pulse" />
-          //       <div className="absolute -top-2 -right-2 -left-2 -bottom-2 rounded-full bg-indigo-400/20" />
-          //     </div>
-          //   );
-
-          //   moonMarkerRef.current = new mapboxgl.Marker(moonEl)
-
-          //     .setLngLat([sun.longitude, sun.latitude])
-          //     .addTo(map.current!);
-          // } else {
-          //   moonMarkerRef.current.setLngLat([sun.longitude, sun.latitude])
-          // }
-
-
-          // Set up click and mousemove handlers
-          // map.current?.on('click', (e) => {
-          //   if (isAddingPin) {
-          //     const { lng, lat } = e.lngLat;
-
-          //     // Remove any existing temporary marker
-          //     if (tempMarker) {
-          //       tempMarker.remove();
-          //     }
-
-          //     // Create a temporary marker at the clicked location
-          //     const marker = new mapboxgl.Marker({
-          //       color: '#FF5733',
-          //       draggable: true
-          //     })
-          //       .setLngLat([lng, lat])
-          //       .addTo(map.current!);
-
-          //     setTempMarker(marker);
-
-          //     console.log(lat, typeof lat)
-          //     // Open the add pin modal with pre-filled coordinates
-          //     setNewPinLat(lat.toFixed(6));
-          //     setNewPinLng(lng.toFixed(6));
-          //     setShowAddPinModal(true);
-
-          //     // Exit pin placement mode
-          //     disablePinPlacementMode();
-          //   }
-          // });
 
           map.current?.on('mousemove', (e) => {
             if (isAddingPin && tempMarker) {
@@ -912,63 +835,67 @@ const WorldMap: React.FC<WorldMapProps> = () => {
       setEarthquakeMarkers([]); // Clear the array
     }
   }, [showEarthquakes]); // Re-run when toggle state changes
+
+  function sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+
+  async function fetchAllCitiesByCountry(countryCode: string) {
+    const allCities = [];
+    let offset = 0;
+    const limit = 10; // Use a limit allowed by your plan
+
+    while (true) {
+      const url = `https://wft-geo-db.p.rapidapi.com/v1/geo/cities?countryIds=${countryCode}&limit=${limit}&offset=${offset}`;
+
+      const options = {
+        method: "GET",
+        headers: {
+          "x-rapidapi-key": "cc66cd8cf8msh0150225ff582b53p14ff52jsn4484decd019b",
+          "x-rapidapi-host": "wft-geo-db.p.rapidapi.com",
+        },
+      };
+
+      const response = await fetch(url, options);
+      const data = await response.json();
+
+      if (!data.data || data.data.length === 0) break;
+
+      allCities.push(...data.data);
+
+      if (data.data.length < limit) break;
+
+      offset += limit;
+
+      // 🕒 Wait 500ms before the next request to avoid rate limits
+      await sleep(500);
+    }
+
+    setSearchCities(allCities);
+
+  }
   return (
     <div className="h-screen w-screen overflow-hidden">
       <div className="flex flex-col h-full w-full">
-        <header className="bg-gradient-to-r from-indigo-900 to-purple-900 text-white p-2 flex items-center overflow-x-auto shadow-lg z-10">
-          <div className="ml-auto flex space-x-1 overflow-x-auto">
-            {headerCities.map((city) => (
-              <div key={city.name} className="flex-shrink-0 border-r border-indigo-700/30 last:border-r-0 px-4 py-1 justify-items-center">
-                <div className="flex items-center mb-1 justify-center">
-                  {city.name === "UTC" ? (
-                    <Clock className="h-4 w-4 mr-2 text-indigo-300" />
-                  ) : (
-                    <MapPin className="h-4 w-4 mr-2 text-pink-300" />
-                  )}
-                  <span className="text-gray-300 text-sm">{city.name}</span>
-                </div>
-                <CityTimeDisplay timezone={city.timezone} className="text-2xl font-bold" showSeconds={true} format={timeFormat} />
-                {city.name !== "UTC" && (
-                  <div className="text-xs mt-1 text-gray-300">
-                    {new Intl.DateTimeFormat("en-US", {
-                      weekday: "short",
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                      timeZone: city.timezone, // Use the city's timezone
-                    }).format(new Date())}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-
-        </header>
+        <Header headerCities={headerCities} />
         <div className="relative flex-1 w-full">
           <div className="relative w-full h-full overflow-hidden bg-gray-900">
             {/* Add Pin Button */}
             <div className="absolute top-4 right-8 z-20">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        // enablePinPlacementMode();
-                        setShowAddPinModal(true);
-                      }}
-                      className="bg-gray-800/80 backdrop-blur-sm border-gray-700/50 text-white hover:bg-gray-700 h-12 w-12 rounded-full shadow-lg"
-                    >
-                      <Plus className="h-6 w-6" />
-                    </Button>
-                  </TooltipTrigger>
-
-                </Tooltip>
-              </TooltipProvider>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  // enablePinPlacementMode();
+                  setShowAddPinModal(true);
+                }}
+                className="bg-gray-800/80 backdrop-blur-sm border-gray-700/50 text-white hover:bg-gray-700 h-12 w-12 rounded-full shadow-lg"
+              >
+                <Plus className="h-6 w-6" />
+              </Button>
             </div>
 
             {/* Time indicator */}
@@ -1002,7 +929,8 @@ const WorldMap: React.FC<WorldMapProps> = () => {
             <div
               ref={mapRef}
               className="absolute inset-0 w-full h-full"
-            ></div>
+            >
+            </div>
             {/* Day/Night overlay */}
             {showDayNightOverlay && map.current && (
               <DayNightOverlay
@@ -1034,6 +962,11 @@ const WorldMap: React.FC<WorldMapProps> = () => {
                         setNewPinName("");
                         setSelectedCity(false);
                         setSearchCities([]);
+                        // const countryCode = "GB"; // Use ISO-3166-1 alpha-2 country code
+                        const url = `https://wft-geo-db.p.rapidapi.com/v1/geo/cities?countryIds=${countryCode}&limit=10`;
+
+                        fetchAllCitiesByCountry(countryCode)
+
                       }}
                       className="bg-gray-800 border-gray-700 text-white w-full p-2 rounded-lg"
                     >
@@ -1147,6 +1080,7 @@ const WorldMap: React.FC<WorldMapProps> = () => {
             </Dialog>
           </div>
           <MapControls
+            timeFormat={timeFormat}
             showTimeFormat={timeFormat}
             onToggleSunAndMoon={(show) => { setShowSunAndMoon(show) }}
             onTimeFormatChange={(format) => setTimeFormat(format)}
@@ -1155,6 +1089,8 @@ const WorldMap: React.FC<WorldMapProps> = () => {
             setShowDayNightOverlay={(show) => setShowDayNightOverlay(show)}
             showEarthQuakesData={showEarthquakes}
             onToggleEarthquakes={(show) => setShowEarthquakes(show)}
+            headerCities={headerCities}
+            onHeaderCitiesChange={setHeaderCities}
           />
         </div>
       </div>
